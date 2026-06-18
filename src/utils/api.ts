@@ -1,0 +1,243 @@
+import type {
+  ApiResponse,
+  User,
+  Student,
+  StudentWithDetails,
+  Course,
+  ClassWithStats,
+  ConsultationRecord,
+  Enrollment,
+  AttendanceRecord,
+  AttendanceStatistics,
+  AutoAssignResult,
+  ClassRosterReport,
+  ParentStudentInfo,
+  ParentAttendanceRecord,
+  LoginRequest,
+  CreateStudentRequest,
+  EnrollRequest,
+  CreateClassRequest,
+  AttendanceSubmitRequest
+} from '../../shared/types';
+
+const API_BASE = '/api';
+
+async function request<T>(
+  url: string,
+  options: RequestInit = {}
+): Promise<ApiResponse<T>> {
+  const token = localStorage.getItem('token');
+  
+  const headers: HeadersInit = {
+    'Content-Type': 'application/json',
+    ...options.headers,
+  };
+  
+  if (token) {
+    headers['Authorization'] = `Bearer ${token}`;
+  }
+  
+  const response = await fetch(`${API_BASE}${url}`, {
+    ...options,
+    headers,
+  });
+  
+  return response.json();
+}
+
+export const authApi = {
+  login: (data: LoginRequest) =>
+    request<{ token: string; user: User }>('/auth/login', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    }),
+  
+  getCurrentUser: () =>
+    request<User>('/auth/me'),
+  
+  logout: () => {
+    localStorage.removeItem('token');
+    localStorage.removeItem('user');
+  },
+};
+
+export const studentApi = {
+  getAll: (status?: string) =>
+    request<StudentWithDetails[]>(`/students${status ? `?status=${status}` : ''}`),
+  
+  getUnassigned: () =>
+    request<StudentWithDetails[]>('/students/unassigned'),
+  
+  getById: (id: number) =>
+    request<StudentWithDetails & { enrollments: Enrollment[]; consultations: ConsultationRecord[] }>(`/students/${id}`),
+  
+  create: (data: CreateStudentRequest) =>
+    request<{ id: number }>('/students', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    }),
+  
+  update: (id: number, data: Partial<Student>) =>
+    request(`/students/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    }),
+  
+  addConsultation: (id: number, data: { content: string; followUpStatus: string }) =>
+    request<{ id: number }>(`/students/${id}/consultations`, {
+      method: 'POST',
+      body: JSON.stringify(data),
+    }),
+  
+  enroll: (id: number, data: EnrollRequest) =>
+    request<{ id: number }>(`/students/${id}/enroll`, {
+      method: 'POST',
+      body: JSON.stringify(data),
+    }),
+};
+
+export const classApi = {
+  getAll: () =>
+    request<ClassWithStats[]>('/classes'),
+  
+  getById: (id: number) =>
+    request<ClassWithStats & { students: StudentWithDetails[] }>(`/classes/${id}`),
+  
+  create: (data: CreateClassRequest) =>
+    request<{ id: number }>('/classes', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    }),
+  
+  update: (id: number, data: any) =>
+    request(`/classes/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    }),
+  
+  delete: (id: number) =>
+    request(`/classes/${id}`, {
+      method: 'DELETE',
+    }),
+  
+  getStudents: (id: number) =>
+    request<StudentWithDetails[]>(`/classes/${id}/students`),
+  
+  assignStudent: (classId: number, studentId: number) =>
+    request(`/classes/${classId}/assign-student`, {
+      method: 'POST',
+      body: JSON.stringify({ studentId }),
+    }),
+  
+  removeStudent: (classId: number, studentId: number) =>
+    request(`/classes/${classId}/remove-student`, {
+      method: 'POST',
+      body: JSON.stringify({ studentId }),
+    }),
+  
+  autoAssign: () =>
+    request<AutoAssignResult[]>('/classes/auto-assign'),
+  
+  autoAssignConfirm: (assignments: { studentId: number; classId: number }[]) =>
+    request<{ successCount: number; failCount: number }>('/classes/auto-assign', {
+      method: 'POST',
+      body: JSON.stringify({ assignments }),
+    }),
+};
+
+export const courseApi = {
+  getAll: () =>
+    request<Course[]>('/courses'),
+  
+  getById: (id: number) =>
+    request<Course>(`/courses/${id}`),
+  
+  create: (data: any) =>
+    request<{ id: number }>('/courses', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    }),
+  
+  update: (id: number, data: any) =>
+    request(`/courses/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    }),
+  
+  delete: (id: number) =>
+    request(`/courses/${id}`, {
+      method: 'DELETE',
+    }),
+};
+
+export const attendanceApi = {
+  submit: (data: AttendanceSubmitRequest) =>
+    request('/attendance', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    }),
+  
+  getClassAttendance: (classId: number, date?: string) =>
+    request<AttendanceRecord[]>(`/attendance/class/${classId}${date ? `?date=${date}` : ''}`),
+  
+  getStudentAttendance: (studentId: number) =>
+    request<AttendanceRecord[]>(`/attendance/student/${studentId}`),
+  
+  getStatistics: (classId: number) =>
+    request<AttendanceStatistics[]>(`/attendance/statistics/${classId}`),
+  
+  checkExists: (classId: number, date: string) =>
+    request<{ exists: boolean }>(`/attendance/check/${classId}/${date}`),
+};
+
+export const reportApi = {
+  getClassRoster: (classId: number) =>
+    request<ClassRosterReport>(`/reports/class-roster/${classId}`),
+  
+  getAttendanceReport: (classId: number) =>
+    request(`/reports/attendance/${classId}`),
+  
+  exportRoster: (classId: number) => {
+    const token = localStorage.getItem('token');
+    window.open(`${API_BASE}/reports/export/roster/${classId}?token=${token}`, '_blank');
+  },
+};
+
+export const parentApi = {
+  getRemainingHours: () =>
+    request(`/parent/remaining-hours`),
+  
+  getAttendanceRecords: () =>
+    request<ParentAttendanceRecord[]>('/parent/attendance-records'),
+  
+  getStudents: () =>
+    request<ParentStudentInfo[]>('/parent/students'),
+};
+
+export const userApi = {
+  getAll: (role?: string) =>
+    request<User[]>(`/users${role ? `?role=${role}` : ''}`),
+  
+  getTeachers: () =>
+    request<User[]>('/users/teachers'),
+  
+  getById: (id: number) =>
+    request<User>(`/users/${id}`),
+  
+  create: (data: any) =>
+    request<{ id: number }>('/users', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    }),
+  
+  update: (id: number, data: any) =>
+    request(`/users/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    }),
+  
+  delete: (id: number) =>
+    request(`/users/${id}`, {
+      method: 'DELETE',
+    }),
+};
