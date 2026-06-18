@@ -73,7 +73,12 @@ export class StudentService {
     addHours: number,
     paidAmount: number,
     extendDays: number = 0,
-    operatorId: number | null = null
+    operatorId: number | null = null,
+    packageName: string | null = null,
+    originalPrice: number = 0,
+    discount: number = 0,
+    actualPaid: number = 0,
+    remark: string | null = null
   ) {
     if (!courseId || courseId <= 0) {
       throw new Error('请选择有效的课程');
@@ -90,8 +95,19 @@ export class StudentService {
     if (extendDays < 0) {
       throw new Error('有效期天数不能为负数');
     }
+
+    if (discount < 0) {
+      throw new Error('优惠金额不能为负数');
+    }
+
+    if (actualPaid < 0) {
+      throw new Error('实收金额不能为负数');
+    }
     
-    return studentRepository.renewEnrollment(studentId, courseId, addHours, paidAmount, extendDays, operatorId);
+    return studentRepository.renewEnrollment(
+      studentId, courseId, addHours, paidAmount, extendDays, operatorId,
+      packageName, originalPrice, discount, actualPaid, remark
+    );
   }
 }
 

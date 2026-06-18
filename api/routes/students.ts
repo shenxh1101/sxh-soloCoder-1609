@@ -158,14 +158,19 @@ router.post('/:id/enroll', authenticateToken, requireRole('consultant', 'admin')
 router.post('/:id/renew', authenticateToken, requireRole('consultant', 'admin'), (req: AuthRequest, res) => {
   try {
     const id = parseInt(req.params.id);
-    const { courseId, addHours, paidAmount, extendDays } = req.body;
+    const { courseId, addHours, paidAmount, extendDays, packageName, originalPrice, discount, actualPaid, remark } = req.body;
     const result = studentService.renewEnrollment(
       id,
       courseId,
       addHours,
       paidAmount || 0,
       extendDays || 0,
-      req.user?.id || null
+      req.user?.id || null,
+      packageName || null,
+      originalPrice || 0,
+      discount || 0,
+      actualPaid || 0,
+      remark || null
     );
 
     if (!result.success) {

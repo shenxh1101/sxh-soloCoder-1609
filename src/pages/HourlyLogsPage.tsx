@@ -138,7 +138,8 @@ export default function HourlyLogsPage({ studentId, title }: HourlyLogsPageProps
   const typeConfig: Record<string, { label: string; icon: React.ElementType; color: string }> = {
     deduct: { label: '扣减', icon: Minus, color: 'red' },
     refund: { label: '补回', icon: Plus, color: 'emerald' },
-    enroll: { label: '充值', icon: Plus, color: 'blue' },
+    enroll: { label: '报名', icon: Plus, color: 'blue' },
+    renew: { label: '续费', icon: Plus, color: 'indigo' },
     manual: { label: '手动', icon: Clock, color: 'purple' },
   };
 
@@ -263,7 +264,7 @@ export default function HourlyLogsPage({ studentId, title }: HourlyLogsPageProps
               </div>
             </div>
             <div className="flex flex-wrap items-center gap-2">
-              {(['all', 'enroll', 'deduct', 'refund', 'manual'] as const).map((type) => {
+              {(['all', 'enroll', 'renew', 'deduct', 'refund', 'manual'] as const).map((type) => {
                 const config = type === 'all'
                   ? { label: '全部', color: 'blue' }
                   : typeConfig[type];
@@ -326,7 +327,7 @@ export default function HourlyLogsPage({ studentId, title }: HourlyLogsPageProps
               </div>
             </div>
             <div className="flex flex-wrap items-center gap-2">
-              {(['all', 'enroll', 'deduct', 'refund'] as const).map((type) => {
+              {(['all', 'enroll', 'renew', 'deduct', 'refund'] as const).map((type) => {
                 const config = type === 'all'
                   ? { label: '全部' }
                   : typeConfig[type];
@@ -377,11 +378,13 @@ export default function HourlyLogsPage({ studentId, title }: HourlyLogsPageProps
                 <div className="flex items-center gap-4">
                   <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${
                     log.changeType === 'deduct' ? 'bg-red-100' :
-                    log.changeType === 'refund' ? 'bg-emerald-100' : 'bg-blue-100'
+                    log.changeType === 'refund' ? 'bg-emerald-100' :
+                    log.changeType === 'renew' ? 'bg-indigo-100' : 'bg-blue-100'
                   }`}>
                     <Icon className={`w-5 h-5 ${
                       log.changeType === 'deduct' ? 'text-red-600' :
-                      log.changeType === 'refund' ? 'text-emerald-600' : 'text-blue-600'
+                      log.changeType === 'refund' ? 'text-emerald-600' :
+                      log.changeType === 'renew' ? 'text-indigo-600' : 'text-blue-600'
                     }`} />
                   </div>
                   <div>
@@ -391,7 +394,8 @@ export default function HourlyLogsPage({ studentId, title }: HourlyLogsPageProps
                       )}
                       <span className={`px-2 py-0.5 rounded text-xs font-medium ${
                         log.changeType === 'deduct' ? 'bg-red-100 text-red-700' :
-                        log.changeType === 'refund' ? 'bg-emerald-100 text-emerald-700' : 'bg-blue-100 text-blue-700'
+                        log.changeType === 'refund' ? 'bg-emerald-100 text-emerald-700' :
+                        log.changeType === 'renew' ? 'bg-indigo-100 text-indigo-700' : 'bg-blue-100 text-blue-700'
                       }`}>
                         {config.label}
                       </span>

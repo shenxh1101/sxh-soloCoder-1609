@@ -1,5 +1,6 @@
 import classRepository from '../repositories/ClassRepository';
 import attendanceRepository from '../repositories/AttendanceRepository';
+import warningFollowupRepository from '../repositories/WarningFollowupRepository';
 import { getDb } from '../db';
 import type { ClassRosterReport } from '../../shared/types';
 
@@ -190,6 +191,22 @@ export class ReportService {
     `).all() as any[];
 
     return { expiringSoon, lowHours, longAbsent };
+  }
+
+  getFollowupsByEnrollment(enrollmentId: number) {
+    return warningFollowupRepository.findByEnrollmentId(enrollmentId);
+  }
+
+  upsertFollowup(data: {
+    studentId: number;
+    enrollmentId: number;
+    warningType: string;
+    followStatus: string;
+    nextFollowDate?: string;
+    followResult?: string;
+    operatorId?: number | null;
+  }) {
+    return warningFollowupRepository.upsert(data);
   }
 }
 

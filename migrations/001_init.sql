@@ -99,7 +99,7 @@ CREATE TABLE hourly_logs (
   student_id INTEGER NOT NULL,
   course_id INTEGER NOT NULL,
   class_id INTEGER,
-  change_type VARCHAR(20) NOT NULL CHECK (change_type IN ('deduct', 'refund', 'enroll', 'manual')),
+  change_type VARCHAR(20) NOT NULL CHECK (change_type IN ('deduct', 'refund', 'enroll', 'renew', 'manual')),
   change_amount INTEGER NOT NULL,
   balance_after INTEGER NOT NULL,
   reason VARCHAR(500) NOT NULL,

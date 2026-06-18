@@ -108,7 +108,7 @@ export const studentApi = {
       body: JSON.stringify(data),
     }),
 
-  renew: (id: number, data: { courseId: number; addHours: number; paidAmount: number; extendDays?: number }) =>
+  renew: (id: number, data: { courseId: number; addHours: number; paidAmount: number; extendDays?: number; packageName?: string; originalPrice?: number; discount?: number; actualPaid?: number; remark?: string }) =>
     request<{ remainingHours: number }>(`/students/${id}/renew`, {
       method: 'POST',
       body: JSON.stringify(data),
@@ -218,6 +218,15 @@ export const reportApi = {
 
   getHourWarnings: () =>
     request<{ expiringSoon: any[]; lowHours: any[]; longAbsent: any[] }>(`/reports/warnings`),
+
+  getFollowup: (enrollmentId: number) =>
+    request<any>(`/reports/followups/${enrollmentId}`),
+
+  saveFollowup: (data: { studentId: number; enrollmentId: number; warningType: string; followStatus: string; nextFollowDate?: string; followResult?: string }) =>
+    request<any>(`/reports/followups`, {
+      method: 'POST',
+      body: JSON.stringify(data),
+    }),
   
   exportRoster: async (classId: number) => {
     const token = localStorage.getItem('token');

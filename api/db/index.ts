@@ -42,6 +42,7 @@ function initializeDatabase(db: Database.Database) {
     seedInitialData(db);
   } else {
     checkAndFreezeExpiredEnrollments(db);
+    runIncrementalMigrations(db, migrationDir);
   }
 }
 
@@ -149,6 +150,32 @@ export function checkAndFreezeExpiredEnrollments(db: Database.Database) {
     SET is_frozen = 1
     WHERE expire_date < ? AND is_frozen = 0
   `).run(today);
+}
+
+function runIncrementalMigrations(db: Database.Database, migrationDir: string) {
+  db.prepare(`
+    CREATE TABLE IF NOT EXISTS _migrations (
+      name VARCHAR(200) PRIMARY KEY,
+      applied_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    )
+  `).run();
+
+  const applied = new Set(
+    (db.prepare('SELECT name FROM _migrations').all() as { name: string }[]).map(r => r.name)
+  );
+
+  applied.add('001_init.sql');
+
+  const files = fs.readdirSync(migrationDir)
+    .filter(f => f.endsWith('.sql'))
+    .sort();
+
+  for (const file of files) {
+    if (applied.has(file)) continue;
+    const sql = fs.readFileSync(path.join(migrationDir, file), 'utf-8');
+    db.exec(sql);
+    db.prepare('INSERT INTO _migrations (name) VALUES (?)').run(file);
+  }
 }
 
 export default getDb;

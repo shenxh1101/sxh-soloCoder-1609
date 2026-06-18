@@ -186,7 +186,12 @@ export class StudentRepository {
     addHours: number,
     paidAmount: number,
     extendDays: number = 0,
-    operatorId: number | null = null
+    operatorId: number | null = null,
+    packageName: string | null = null,
+    originalPrice: number = 0,
+    discount: number = 0,
+    actualPaid: number = 0,
+    remark: string | null = null
   ): { success: boolean; remainingHours: number; message?: string } {
     const existing = this.db.prepare(`
       SELECT * FROM enrollments WHERE student_id = ? AND course_id = ?
@@ -212,21 +217,35 @@ export class StudentRepository {
             ELSE expire_date
           END
         WHERE id = ?
-      `).run(addHours, addHours, paidAmount, extendDays, extendDays, existing.id);
+      `).run(addHours, addHours, actualPaid > 0 ? actualPaid : paidAmount, extendDays, extendDays, existing.id);
 
       const updated = this.db.prepare(`
         SELECT remaining_hours FROM enrollments WHERE id = ?
       `).get(existing.id) as { remaining_hours: number };
 
-      const reason = extendDays > 0
-        ? `续费追加${addHours}课时，实付¥${paidAmount}，有效期延长${extendDays}天`
-        : `续费追加${addHours}课时，实付¥${paidAmount}`;
+      const effectivePaid = actualPaid > 0 ? actualPaid : paidAmount;
+
+      this.db.prepare(`
+        INSERT INTO renew_orders (student_id, course_id, package_name, add_hours, original_price, discount, actual_paid, extend_days, remark, operator_id)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      `).run(
+        studentId, courseId, packageName, addHours,
+        originalPrice || paidAmount, discount, effectivePaid,
+        extendDays, remark, operatorId
+      );
+
+      const parts = [`续费追加${addHours}课时`];
+      if (packageName) parts.push(`套餐：${packageName}`);
+      if (discount > 0) parts.push(`优惠¥${discount}`);
+      parts.push(`实付¥${effectivePaid}`);
+      if (extendDays > 0) parts.push(`有效期延长${extendDays}天`);
+      const reason = parts.join('，');
 
       hourlyLogRepository.createLog(
         studentId,
         courseId,
         null,
-        'enroll',
+        'renew',
         addHours,
         updated.remaining_hours,
         reason,

@@ -81,7 +81,7 @@ class HourlyLogRepository {
     studentId: number,
     courseId: number,
     classId: number | null,
-    changeType: 'deduct' | 'refund' | 'enroll' | 'manual',
+    changeType: 'deduct' | 'refund' | 'enroll' | 'renew' | 'manual',
     changeAmount: number,
     balanceAfter: number,
     reason: string,
@@ -119,7 +119,8 @@ class HourlyLogRepository {
     const typeLabels: Record<string, string> = {
       deduct: '扣课',
       refund: '补回',
-      enroll: '充值/报名',
+      enroll: '报名充值',
+      renew: '续费充值',
       manual: '手动调整',
     };
 

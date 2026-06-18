@@ -20,7 +20,7 @@ export default function StudentDetail() {
   const [showRenewModal, setShowRenewModal] = useState(false);
   const [enrollForm, setEnrollForm] = useState({ courseId: '', totalHours: '', paidAmount: '' });
   const [enrollErrors, setEnrollErrors] = useState<Record<string, string>>({});
-  const [renewForm, setRenewForm] = useState({ courseId: '', addHours: '', paidAmount: '', extendDays: '' });
+  const [renewForm, setRenewForm] = useState({ courseId: '', addHours: '', paidAmount: '', extendDays: '', packageName: '', originalPrice: '', discount: '', actualPaid: '', remark: '' });
   const [renewErrors, setRenewErrors] = useState<Record<string, string>>({});
   const [consultationForm, setConsultationForm] = useState({ content: '', followUpStatus: 'pending' });
   const [submitting, setSubmitting] = useState(false);
@@ -110,6 +110,11 @@ export default function StudentDetail() {
       addHours: course?.totalHours?.toString() || '',
       paidAmount: course?.price?.toString() || '',
       extendDays: '180',
+      packageName: course ? `${course.name}标准套餐` : '',
+      originalPrice: course?.price?.toString() || '',
+      discount: '',
+      actualPaid: '',
+      remark: '',
     });
     setRenewErrors({});
     setShowRenewModal(true);
@@ -130,6 +135,20 @@ export default function StudentDetail() {
       errors.paidAmount = '请输入缴费金额';
     } else if (paidAmount < 0) {
       errors.paidAmount = '缴费金额不能为负数';
+    }
+
+    const discount = parseFloat(renewForm.discount || '0');
+    if (renewForm.discount !== '' && isNaN(discount)) {
+      errors.discount = '优惠金额格式错误';
+    } else if (discount < 0) {
+      errors.discount = '优惠金额不能为负数';
+    }
+
+    const actualPaid = parseFloat(renewForm.actualPaid || '0');
+    if (renewForm.actualPaid !== '' && isNaN(actualPaid)) {
+      errors.actualPaid = '实收金额格式错误';
+    } else if (actualPaid < 0) {
+      errors.actualPaid = '实收金额不能为负数';
     }
 
     const extendDays = parseInt(renewForm.extendDays);
@@ -153,13 +172,18 @@ export default function StudentDetail() {
         addHours: parseInt(renewForm.addHours),
         paidAmount: parseFloat(renewForm.paidAmount),
         extendDays: renewForm.extendDays ? parseInt(renewForm.extendDays) : 0,
+        packageName: renewForm.packageName || undefined,
+        originalPrice: renewForm.originalPrice ? parseFloat(renewForm.originalPrice) : undefined,
+        discount: renewForm.discount ? parseFloat(renewForm.discount) : undefined,
+        actualPaid: renewForm.actualPaid ? parseFloat(renewForm.actualPaid) : undefined,
+        remark: renewForm.remark || undefined,
       });
 
       if (res.success) {
         alert(`续费成功！最新剩余课时：${res.data?.remainingHours}`);
         setShowRenewModal(false);
         setRenewTargetCourse(null);
-        setRenewForm({ courseId: '', addHours: '', paidAmount: '', extendDays: '' });
+        setRenewForm({ courseId: '', addHours: '', paidAmount: '', extendDays: '', packageName: '', originalPrice: '', discount: '', actualPaid: '', remark: '' });
         setRenewErrors({});
         loadData();
       } else {
@@ -554,7 +578,7 @@ export default function StudentDetail() {
 
       {showRenewModal && renewTargetCourse && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
-          <div className="bg-white rounded-2xl p-6 w-full max-w-md">
+          <div className="bg-white rounded-2xl p-6 w-full max-w-lg max-h-[90vh] overflow-y-auto">
             <h3 className="text-lg font-semibold text-slate-900 mb-4">
               续费 - {courses.find(c => c.id === renewTargetCourse.courseId)?.name || '课程'}
             </h3>
@@ -570,66 +594,119 @@ export default function StudentDetail() {
             </div>
             <div className="space-y-4">
               <div>
-                <label className="block text-sm font-medium text-slate-700 mb-2">追加课时数</label>
+                <label className="block text-sm font-medium text-slate-700 mb-2">套餐名称</label>
                 <input
-                  type="number"
-                  value={renewForm.addHours}
-                  onChange={(e) => {
-                    setRenewForm(prev => ({ ...prev, addHours: e.target.value }));
-                    if (renewErrors.addHours) {
-                      setRenewErrors(prev => ({ ...prev, addHours: '' }));
-                    }
-                  }}
-                  placeholder="请输入追加课时数"
-                  className={`w-full px-4 py-2.5 border rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent ${
-                    renewErrors.addHours ? 'border-red-400 focus:ring-red-500' : 'border-slate-200'
-                  }`}
+                  type="text"
+                  value={renewForm.packageName}
+                  onChange={(e) => setRenewForm(prev => ({ ...prev, packageName: e.target.value }))}
+                  placeholder="如：标准套餐、优惠套餐"
+                  className="w-full px-4 py-2.5 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                 />
-                {renewErrors.addHours && (
-                  <p className="mt-1 text-sm text-red-600">{renewErrors.addHours}</p>
-                )}
               </div>
-              <div>
-                <label className="block text-sm font-medium text-slate-700 mb-2">续费金额（元）</label>
-                <input
-                  type="number"
-                  value={renewForm.paidAmount}
-                  onChange={(e) => {
-                    setRenewForm(prev => ({ ...prev, paidAmount: e.target.value }));
-                    if (renewErrors.paidAmount) {
-                      setRenewErrors(prev => ({ ...prev, paidAmount: '' }));
-                    }
-                  }}
-                  placeholder="请输入缴费金额"
-                  className={`w-full px-4 py-2.5 border rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent ${
-                    renewErrors.paidAmount ? 'border-red-400 focus:ring-red-500' : 'border-slate-200'
-                  }`}
-                />
-                {renewErrors.paidAmount && (
-                  <p className="mt-1 text-sm text-red-600">{renewErrors.paidAmount}</p>
-                )}
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 mb-2">追加课时数</label>
+                  <input
+                    type="number"
+                    value={renewForm.addHours}
+                    onChange={(e) => {
+                      setRenewForm(prev => ({ ...prev, addHours: e.target.value }));
+                      if (renewErrors.addHours) setRenewErrors(prev => ({ ...prev, addHours: '' }));
+                    }}
+                    placeholder="请输入"
+                    className={`w-full px-4 py-2.5 border rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent ${
+                      renewErrors.addHours ? 'border-red-400 focus:ring-red-500' : 'border-slate-200'
+                    }`}
+                  />
+                  {renewErrors.addHours && <p className="mt-1 text-sm text-red-600">{renewErrors.addHours}</p>}
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 mb-2">原价（元）</label>
+                  <input
+                    type="number"
+                    value={renewForm.originalPrice}
+                    onChange={(e) => setRenewForm(prev => ({ ...prev, originalPrice: e.target.value }))}
+                    placeholder="标准价格"
+                    className="w-full px-4 py-2.5 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  />
+                </div>
+              </div>
+              <div className="grid grid-cols-3 gap-3">
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 mb-2">优惠（元）</label>
+                  <input
+                    type="number"
+                    value={renewForm.discount}
+                    onChange={(e) => {
+                      setRenewForm(prev => ({ ...prev, discount: e.target.value }));
+                      if (renewErrors.discount) setRenewErrors(prev => ({ ...prev, discount: '' }));
+                    }}
+                    placeholder="0"
+                    className={`w-full px-4 py-2.5 border rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent ${
+                      renewErrors.discount ? 'border-red-400' : 'border-slate-200'
+                    }`}
+                  />
+                  {renewErrors.discount && <p className="mt-1 text-sm text-red-600">{renewErrors.discount}</p>}
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 mb-2">实收（元）</label>
+                  <input
+                    type="number"
+                    value={renewForm.actualPaid}
+                    onChange={(e) => {
+                      setRenewForm(prev => ({ ...prev, actualPaid: e.target.value }));
+                      if (renewErrors.actualPaid) setRenewErrors(prev => ({ ...prev, actualPaid: '' }));
+                    }}
+                    placeholder="实际收款"
+                    className={`w-full px-4 py-2.5 border rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent ${
+                      renewErrors.actualPaid ? 'border-red-400' : 'border-slate-200'
+                    }`}
+                  />
+                  {renewErrors.actualPaid && <p className="mt-1 text-sm text-red-600">{renewErrors.actualPaid}</p>}
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 mb-2">续费金额</label>
+                  <input
+                    type="number"
+                    value={renewForm.paidAmount}
+                    onChange={(e) => {
+                      setRenewForm(prev => ({ ...prev, paidAmount: e.target.value }));
+                      if (renewErrors.paidAmount) setRenewErrors(prev => ({ ...prev, paidAmount: '' }));
+                    }}
+                    placeholder="默认金额"
+                    className={`w-full px-4 py-2.5 border rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent ${
+                      renewErrors.paidAmount ? 'border-red-400 focus:ring-red-500' : 'border-slate-200'
+                    }`}
+                  />
+                  {renewErrors.paidAmount && <p className="mt-1 text-sm text-red-600">{renewErrors.paidAmount}</p>}
+                </div>
               </div>
               <div>
                 <label className="block text-sm font-medium text-slate-700 mb-2">
-                  有效期延长（天）<span className="text-slate-400"> 可选，默认180天</span>
+                  有效期延长（天）<span className="text-slate-400">默认180天</span>
                 </label>
                 <input
                   type="number"
                   value={renewForm.extendDays}
                   onChange={(e) => {
                     setRenewForm(prev => ({ ...prev, extendDays: e.target.value }));
-                    if (renewErrors.extendDays) {
-                      setRenewErrors(prev => ({ ...prev, extendDays: '' }));
-                    }
+                    if (renewErrors.extendDays) setRenewErrors(prev => ({ ...prev, extendDays: '' }));
                   }}
                   placeholder="180"
                   className={`w-full px-4 py-2.5 border rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent ${
-                    renewErrors.extendDays ? 'border-red-400 focus:ring-red-500' : 'border-slate-200'
+                    renewErrors.extendDays ? 'border-red-400' : 'border-slate-200'
                   }`}
                 />
-                {renewErrors.extendDays && (
-                  <p className="mt-1 text-sm text-red-600">{renewErrors.extendDays}</p>
-                )}
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-2">备注</label>
+                <textarea
+                  value={renewForm.remark}
+                  onChange={(e) => setRenewForm(prev => ({ ...prev, remark: e.target.value }))}
+                  rows={2}
+                  placeholder="可选，如：老学员优惠、活动赠送等"
+                  className="w-full px-4 py-2.5 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none"
+                />
               </div>
               <div className="flex gap-3 pt-4">
                 <button

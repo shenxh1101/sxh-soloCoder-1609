@@ -75,10 +75,21 @@ export class ClassRepository {
         s.parent_phone as parentPhone,
         s.class_id as classId,
         s.created_at as createdAt,
-        (SELECT COUNT(*) FROM attendance_records ar WHERE ar.student_id = s.id AND ar.status = 'present') as attendanceCount
+        (SELECT COUNT(*) FROM attendance_records ar WHERE ar.student_id = s.id AND ar.status = 'present') as attendanceCount,
+        e.id as enrollmentId,
+        e.remaining_hours as remainingHours,
+        e.total_hours as totalHours,
+        e.is_frozen as isFrozen,
+        e.expire_date as expireDate,
+        e.paid_amount as paidAmount,
+        e.enroll_date as enrollDate,
+        e.course_id as enrollmentCourseId,
+        co.name as enrollmentCourseName
       FROM students s
       LEFT JOIN courses c ON s.intended_course_id = c.id
       LEFT JOIN classes cl ON s.class_id = cl.id
+      LEFT JOIN enrollments e ON e.student_id = s.id AND e.course_id = cl.course_id
+      LEFT JOIN courses co ON e.course_id = co.id
       WHERE s.class_id = ?
       ORDER BY s.name
     `).all(classId) as StudentWithDetails[];

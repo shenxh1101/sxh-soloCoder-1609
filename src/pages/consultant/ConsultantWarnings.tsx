@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { AlertTriangle, Clock, Calendar, Users, Phone, UserCircle, RefreshCw, ChevronRight } from 'lucide-react';
+import { AlertTriangle, Clock, Calendar, Users, Phone, UserCircle, RefreshCw, ChevronRight, CheckCircle, MessageSquare, X } from 'lucide-react';
 import { reportApi } from '../../utils/api';
 
 type TabKey = 'expiringSoon' | 'lowHours' | 'longAbsent';
@@ -23,6 +23,25 @@ interface WarningItem {
   isFrozen?: number;
 }
 
+interface FollowupState {
+  followStatus: string;
+  nextFollowDate: string;
+  followResult: string;
+}
+
+const warningTypeMap: Record<TabKey, string> = {
+  expiringSoon: 'expiring_soon',
+  lowHours: 'low_hours',
+  longAbsent: 'long_absent',
+};
+
+const statusLabels: Record<string, { label: string; color: string }> = {
+  pending: { label: '待跟进', color: 'bg-amber-100 text-amber-700' },
+  contacted: { label: '已联系', color: 'bg-blue-100 text-blue-700' },
+  resolved: { label: '已解决', color: 'bg-emerald-100 text-emerald-700' },
+  ignored: { label: '已忽略', color: 'bg-slate-100 text-slate-600' },
+};
+
 export default function ConsultantWarnings() {
   const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState<TabKey>('expiringSoon');
@@ -30,6 +49,11 @@ export default function ConsultantWarnings() {
   const [lowHours, setLowHours] = useState<WarningItem[]>([]);
   const [longAbsent, setLongAbsent] = useState<WarningItem[]>([]);
   const [loading, setLoading] = useState(true);
+  const [followups, setFollowups] = useState<Record<string, FollowupState>>({});
+  const [showFollowupModal, setShowFollowupModal] = useState(false);
+  const [followupTarget, setFollowupTarget] = useState<{ item: WarningItem; tab: TabKey } | null>(null);
+  const [followupForm, setFollowupForm] = useState<FollowupState>({ followStatus: 'contacted', nextFollowDate: '', followResult: '' });
+  const [saving, setSaving] = useState(false);
 
   useEffect(() => {
     loadData();
@@ -43,10 +67,36 @@ export default function ConsultantWarnings() {
         setExpiringSoon(res.data.expiringSoon || []);
         setLowHours(res.data.lowHours || []);
         setLongAbsent(res.data.longAbsent || []);
+        await loadFollowups([
+          ...(res.data.expiringSoon || []),
+          ...(res.data.lowHours || []),
+          ...(res.data.longAbsent || []),
+        ]);
       }
     } finally {
       setLoading(false);
     }
+  };
+
+  const loadFollowups = async (items: WarningItem[]) => {
+    const map: Record<string, FollowupState> = {};
+    const seen = new Set<number>();
+    for (const item of items) {
+      if (seen.has(item.enrollmentId)) continue;
+      seen.add(item.enrollmentId);
+      try {
+        const r = await reportApi.getFollowup(item.enrollmentId);
+        if (r.data) {
+          const key = `${item.enrollmentId}`;
+          map[key] = {
+            followStatus: r.data.followStatus || 'pending',
+            nextFollowDate: r.data.nextFollowDate || '',
+            followResult: r.data.followResult || '',
+          };
+        }
+      } catch {}
+    }
+    setFollowups(prev => ({ ...prev, ...map }));
   };
 
   const tabs: { key: TabKey; label: string; count: number; color: string; icon: React.ElementType }[] = [
@@ -64,6 +114,44 @@ export default function ConsultantWarnings() {
     } catch {
       alert(`请联系家长：${name}  ${phone}`);
     }
+  };
+
+  const openFollowupModal = (item: WarningItem) => {
+    const key = `${item.enrollmentId}`;
+    const existing = followups[key];
+    setFollowupTarget({ item, tab: activeTab });
+    setFollowupForm({
+      followStatus: existing?.followStatus || 'contacted',
+      nextFollowDate: existing?.nextFollowDate || '',
+      followResult: existing?.followResult || '',
+    });
+    setShowFollowupModal(true);
+  };
+
+  const handleSaveFollowup = async () => {
+    if (!followupTarget) return;
+    setSaving(true);
+    try {
+      const wt = warningTypeMap[followupTarget.tab];
+      await reportApi.saveFollowup({
+        studentId: followupTarget.item.studentId,
+        enrollmentId: followupTarget.item.enrollmentId,
+        warningType: wt,
+        followStatus: followupForm.followStatus,
+        nextFollowDate: followupForm.nextFollowDate || undefined,
+        followResult: followupForm.followResult || undefined,
+      });
+      const key = `${followupTarget.item.enrollmentId}`;
+      setFollowups(prev => ({ ...prev, [key]: { ...followupForm } }));
+      setShowFollowupModal(false);
+      setFollowupTarget(null);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const getFollowupStatus = (item: WarningItem): FollowupState | undefined => {
+    return followups[`${item.enrollmentId}`];
   };
 
   const renderBadge = (item: WarningItem) => {
@@ -109,7 +197,7 @@ export default function ConsultantWarnings() {
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <h1 className="text-2xl font-bold text-slate-900">课时预警看板</h1>
-          <p className="text-slate-500 mt-1">识别课时快到期、课时不足、长期缺课的学员</p>
+          <p className="text-slate-500 mt-1">识别并跟进课时快到期、课时不足、长期缺课的学员</p>
         </div>
         <button
           onClick={loadData}
@@ -179,54 +267,141 @@ export default function ConsultantWarnings() {
           </div>
         ) : (
           <div className="divide-y divide-slate-100">
-            {currentList.map(item => (
-              <div key={`${item.enrollmentId}-${item.studentId}`} className="px-6 py-4 hover:bg-slate-50 transition-colors">
-                <div className="flex items-center gap-4">
-                  <div className="w-11 h-11 rounded-full bg-gradient-to-br from-blue-400 to-indigo-500 flex items-center justify-center flex-shrink-0">
-                    <UserCircle className="w-6 h-6 text-white" />
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2 flex-wrap">
-                      <p className="font-semibold text-slate-900">{item.studentName}</p>
-                      <span className="text-xs text-slate-400">{item.age}岁</span>
-                      {renderBadge(item)}
-                      {item.isFrozen ? (
-                        <span className="px-2 py-0.5 rounded text-xs bg-gray-100 text-gray-600">已冻结</span>
-                      ) : null}
+            {currentList.map(item => {
+              const fu = getFollowupStatus(item);
+              const statusInfo = fu ? statusLabels[fu.followStatus] : null;
+              return (
+                <div key={`${item.enrollmentId}-${item.studentId}`} className="px-6 py-4 hover:bg-slate-50 transition-colors">
+                  <div className="flex items-center gap-4">
+                    <div className="w-11 h-11 rounded-full bg-gradient-to-br from-blue-400 to-indigo-500 flex items-center justify-center flex-shrink-0">
+                      <UserCircle className="w-6 h-6 text-white" />
                     </div>
-                    <div className="mt-1 flex flex-wrap items-center gap-3 text-xs text-slate-500">
-                      <span>课程：{item.courseName}</span>
-                      {item.className && <span>班级：{item.className}</span>}
-                      <span>剩余课时：<span className="font-medium text-slate-700">{item.remainingHours}</span></span>
-                      <span>{renderSubInfo(item)}</span>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <p className="font-semibold text-slate-900">{item.studentName}</p>
+                        <span className="text-xs text-slate-400">{item.age}岁</span>
+                        {renderBadge(item)}
+                        {item.isFrozen ? (
+                          <span className="px-2 py-0.5 rounded text-xs bg-gray-100 text-gray-600">已冻结</span>
+                        ) : null}
+                        {statusInfo && (
+                          <span className={`px-2 py-0.5 rounded text-xs font-medium ${statusInfo.color}`}>
+                            {statusInfo.label}
+                          </span>
+                        )}
+                      </div>
+                      <div className="mt-1 flex flex-wrap items-center gap-3 text-xs text-slate-500">
+                        <span>课程：{item.courseName}</span>
+                        {item.className && <span>班级：{item.className}</span>}
+                        <span>剩余课时：<span className="font-medium text-slate-700">{item.remainingHours}</span></span>
+                        <span>{renderSubInfo(item)}</span>
+                      </div>
+                      <div className="mt-1 flex flex-wrap items-center gap-3 text-xs text-slate-400">
+                        <span className="flex items-center gap-1"><Phone className="w-3 h-3" />{item.parentPhone}</span>
+                        {fu?.nextFollowDate && (
+                          <span className="text-blue-600">下次跟进：{fu.nextFollowDate}</span>
+                        )}
+                        {fu?.followResult && (
+                          <span className="text-slate-500 truncate max-w-[200px]">结果：{fu.followResult}</span>
+                        )}
+                      </div>
                     </div>
-                    <div className="mt-1 text-xs text-slate-400 flex items-center gap-1">
-                      <Phone className="w-3 h-3" />
-                      <span>家长电话：{item.parentPhone}</span>
+                    <div className="flex items-center gap-2 flex-shrink-0">
+                      <button
+                        onClick={() => openFollowupModal(item)}
+                        className="flex items-center gap-1 px-3 py-1.5 bg-amber-50 text-amber-700 rounded-lg text-sm hover:bg-amber-100 transition-colors"
+                      >
+                        <MessageSquare className="w-3.5 h-3.5" />
+                        <span>跟进</span>
+                      </button>
+                      <button
+                        onClick={() => callParent(item.parentPhone, item.studentName)}
+                        className="flex items-center gap-1 px-3 py-1.5 bg-emerald-50 text-emerald-700 rounded-lg text-sm hover:bg-emerald-100 transition-colors"
+                      >
+                        <Phone className="w-3.5 h-3.5" />
+                        <span>联系</span>
+                      </button>
+                      <button
+                        onClick={() => navigate(`/consultant/students/${item.studentId}`)}
+                        className="flex items-center gap-1 px-3 py-1.5 bg-blue-50 text-blue-700 rounded-lg text-sm hover:bg-blue-100 transition-colors"
+                      >
+                        <ChevronRight className="w-3.5 h-3.5" />
+                        <span>详情</span>
+                      </button>
                     </div>
-                  </div>
-                  <div className="flex items-center gap-2 flex-shrink-0">
-                    <button
-                      onClick={() => callParent(item.parentPhone, item.studentName)}
-                      className="flex items-center gap-1 px-3 py-1.5 bg-emerald-50 text-emerald-700 rounded-lg text-sm hover:bg-emerald-100 transition-colors"
-                    >
-                      <Phone className="w-3.5 h-3.5" />
-                      <span>联系家长</span>
-                    </button>
-                    <button
-                      onClick={() => navigate(`/consultant/students/${item.studentId}`)}
-                      className="flex items-center gap-1 px-3 py-1.5 bg-blue-50 text-blue-700 rounded-lg text-sm hover:bg-blue-100 transition-colors"
-                    >
-                      <ChevronRight className="w-3.5 h-3.5" />
-                      <span>学员详情</span>
-                    </button>
                   </div>
                 </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         )}
       </div>
+
+      {showFollowupModal && followupTarget && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-2xl p-6 w-full max-w-md">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg font-semibold text-slate-900">跟进记录 - {followupTarget.item.studentName}</h3>
+              <button onClick={() => { setShowFollowupModal(false); setFollowupTarget(null); }}>
+                <X className="w-5 h-5 text-slate-400 hover:text-slate-600" />
+              </button>
+            </div>
+            <div className="mb-4 p-3 bg-slate-50 rounded-xl text-sm">
+              <p className="text-slate-600">课程：{followupTarget.item.courseName} · 剩余：{followupTarget.item.remainingHours}课时</p>
+            </div>
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-2">跟进状态</label>
+                <select
+                  value={followupForm.followStatus}
+                  onChange={(e) => setFollowupForm(prev => ({ ...prev, followStatus: e.target.value }))}
+                  className="w-full px-4 py-2.5 border border-slate-200 rounded-xl bg-white focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                >
+                  <option value="pending">待跟进</option>
+                  <option value="contacted">已联系</option>
+                  <option value="resolved">已解决</option>
+                  <option value="ignored">已忽略</option>
+                </select>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-2">下次跟进日期</label>
+                <input
+                  type="date"
+                  value={followupForm.nextFollowDate}
+                  onChange={(e) => setFollowupForm(prev => ({ ...prev, nextFollowDate: e.target.value }))}
+                  className="w-full px-4 py-2.5 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-2">跟进结果</label>
+                <textarea
+                  value={followupForm.followResult}
+                  onChange={(e) => setFollowupForm(prev => ({ ...prev, followResult: e.target.value }))}
+                  rows={3}
+                  placeholder="如：家长表示考虑续费、下周来上课..."
+                  className="w-full px-4 py-2.5 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none"
+                />
+              </div>
+              <div className="flex gap-3 pt-2">
+                <button
+                  onClick={() => { setShowFollowupModal(false); setFollowupTarget(null); }}
+                  className="flex-1 px-4 py-2.5 border border-slate-200 rounded-xl hover:bg-slate-50 transition-colors"
+                >
+                  取消
+                </button>
+                <button
+                  onClick={handleSaveFollowup}
+                  disabled={saving}
+                  className="flex-1 px-4 py-2.5 bg-blue-600 text-white rounded-xl hover:bg-blue-700 transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
+                >
+                  <CheckCircle className="w-4 h-4" />
+                  {saving ? '保存中...' : '保存'}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

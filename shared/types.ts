@@ -196,7 +196,7 @@ export interface HourlyLog {
   courseName?: string;
   classId?: number;
   className?: string;
-  changeType: 'deduct' | 'refund' | 'enroll' | 'manual';
+  changeType: 'deduct' | 'refund' | 'enroll' | 'renew' | 'manual';
   changeAmount: number;
   balanceAfter: number;
   reason: string;

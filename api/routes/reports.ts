@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import reportService from '../services/ReportService';
-import { authenticateToken, requireRole } from '../middleware/auth';
+import { authenticateToken, requireRole, AuthRequest } from '../middleware/auth';
 
 const router = Router();
 
@@ -80,6 +80,37 @@ router.get('/warnings', authenticateToken, requireRole('admin', 'consultant'), (
       success: false,
       message: '获取预警数据失败',
     });
+  }
+});
+
+router.get('/followups/:enrollmentId', authenticateToken, requireRole('admin', 'consultant'), (req, res) => {
+  try {
+    const enrollmentId = parseInt(req.params.enrollmentId);
+    const followup = reportService.getFollowupsByEnrollment(enrollmentId);
+    res.json({ success: true, data: followup || null });
+  } catch (error) {
+    res.status(500).json({ success: false, message: '获取跟进记录失败' });
+  }
+});
+
+router.post('/followups', authenticateToken, requireRole('admin', 'consultant'), (req: AuthRequest, res) => {
+  try {
+    const { studentId, enrollmentId, warningType, followStatus, nextFollowDate, followResult } = req.body;
+    if (!studentId || !enrollmentId || !warningType || !followStatus) {
+      return res.status(400).json({ success: false, message: '缺少必填字段' });
+    }
+    const result = reportService.upsertFollowup({
+      studentId,
+      enrollmentId,
+      warningType,
+      followStatus,
+      nextFollowDate,
+      followResult,
+      operatorId: req.user?.id || null,
+    });
+    res.json({ success: true, data: result });
+  } catch (error) {
+    res.status(500).json({ success: false, message: '保存跟进记录失败' });
   }
 });
 
