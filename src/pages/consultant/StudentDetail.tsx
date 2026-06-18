@@ -18,6 +18,7 @@ export default function StudentDetail() {
   const [showEnrollModal, setShowEnrollModal] = useState(false);
   const [showConsultationModal, setShowConsultationModal] = useState(false);
   const [enrollForm, setEnrollForm] = useState({ courseId: '', totalHours: '', paidAmount: '' });
+  const [enrollErrors, setEnrollErrors] = useState<Record<string, string>>({});
   const [consultationForm, setConsultationForm] = useState({ content: '', followUpStatus: 'pending' });
   const [submitting, setSubmitting] = useState(false);
 
@@ -45,9 +46,33 @@ export default function StudentDetail() {
     }
   };
 
+  const validateEnrollForm = (): boolean => {
+    const errors: Record<string, string> = {};
+    
+    if (!enrollForm.courseId) {
+      errors.courseId = '请选择课程';
+    }
+    
+    const totalHours = parseInt(enrollForm.totalHours);
+    if (!enrollForm.totalHours || isNaN(totalHours)) {
+      errors.totalHours = '请输入总课时';
+    } else if (totalHours <= 0) {
+      errors.totalHours = '总课时必须大于0';
+    }
+    
+    const paidAmount = parseFloat(enrollForm.paidAmount);
+    if (enrollForm.paidAmount === '' || isNaN(paidAmount)) {
+      errors.paidAmount = '请输入缴费金额';
+    } else if (paidAmount < 0) {
+      errors.paidAmount = '缴费金额不能为负数';
+    }
+    
+    setEnrollErrors(errors);
+    return Object.keys(errors).length === 0;
+  };
+
   const handleEnroll = async () => {
-    if (!enrollForm.courseId || !enrollForm.totalHours || !enrollForm.paidAmount) {
-      alert('请填写完整信息');
+    if (!validateEnrollForm()) {
       return;
     }
 
@@ -62,6 +87,8 @@ export default function StudentDetail() {
       if (res.success) {
         alert('报名成功！');
         setShowEnrollModal(false);
+        setEnrollForm({ courseId: '', totalHours: '', paidAmount: '' });
+        setEnrollErrors({});
         loadData();
       } else {
         alert(res.message || '报名失败');
@@ -358,8 +385,15 @@ export default function StudentDetail() {
                 <label className="block text-sm font-medium text-slate-700 mb-2">选择课程</label>
                 <select
                   value={enrollForm.courseId}
-                  onChange={(e) => setEnrollForm(prev => ({ ...prev, courseId: e.target.value, totalHours: '' }))}
-                  className="w-full px-4 py-2.5 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white"
+                  onChange={(e) => {
+                    setEnrollForm(prev => ({ ...prev, courseId: e.target.value, totalHours: '' }));
+                    if (enrollErrors.courseId) {
+                      setEnrollErrors(prev => ({ ...prev, courseId: '' }));
+                    }
+                  }}
+                  className={`w-full px-4 py-2.5 border rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white ${
+                    enrollErrors.courseId ? 'border-red-400 focus:ring-red-500' : 'border-slate-200'
+                  }`}
                 >
                   <option value="">请选择课程</option>
                   {courses.map(course => (
@@ -368,6 +402,9 @@ export default function StudentDetail() {
                     </option>
                   ))}
                 </select>
+                {enrollErrors.courseId && (
+                  <p className="mt-1 text-sm text-red-600">{enrollErrors.courseId}</p>
+                )}
               </div>
               <div>
                 <label className="block text-sm font-medium text-slate-700 mb-2">
@@ -376,10 +413,20 @@ export default function StudentDetail() {
                 <input
                   type="number"
                   value={enrollForm.totalHours}
-                  onChange={(e) => setEnrollForm(prev => ({ ...prev, totalHours: e.target.value }))}
+                  onChange={(e) => {
+                    setEnrollForm(prev => ({ ...prev, totalHours: e.target.value }));
+                    if (enrollErrors.totalHours) {
+                      setEnrollErrors(prev => ({ ...prev, totalHours: '' }));
+                    }
+                  }}
                   placeholder={selectedCourse?.totalHours?.toString()}
-                  className="w-full px-4 py-2.5 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  className={`w-full px-4 py-2.5 border rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent ${
+                    enrollErrors.totalHours ? 'border-red-400 focus:ring-red-500' : 'border-slate-200'
+                  }`}
                 />
+                {enrollErrors.totalHours && (
+                  <p className="mt-1 text-sm text-red-600">{enrollErrors.totalHours}</p>
+                )}
               </div>
               <div>
                 <label className="block text-sm font-medium text-slate-700 mb-2">
@@ -388,10 +435,20 @@ export default function StudentDetail() {
                 <input
                   type="number"
                   value={enrollForm.paidAmount}
-                  onChange={(e) => setEnrollForm(prev => ({ ...prev, paidAmount: e.target.value }))}
+                  onChange={(e) => {
+                    setEnrollForm(prev => ({ ...prev, paidAmount: e.target.value }));
+                    if (enrollErrors.paidAmount) {
+                      setEnrollErrors(prev => ({ ...prev, paidAmount: '' }));
+                    }
+                  }}
                   placeholder={selectedCourse?.price?.toString()}
-                  className="w-full px-4 py-2.5 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  className={`w-full px-4 py-2.5 border rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent ${
+                    enrollErrors.paidAmount ? 'border-red-400 focus:ring-red-500' : 'border-slate-200'
+                  }`}
                 />
+                {enrollErrors.paidAmount && (
+                  <p className="mt-1 text-sm text-red-600">{enrollErrors.paidAmount}</p>
+                )}
               </div>
               <div className="flex gap-3 pt-4">
                 <button

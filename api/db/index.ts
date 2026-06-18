@@ -56,6 +56,8 @@ function seedInitialData(db: Database.Database) {
   insertUser.run('admin', passwordHash, 'admin', '系统管理员', '13800000000');
   insertUser.run('consultant1', passwordHash, 'consultant', '张老师', '13800000001');
   insertUser.run('teacher1', passwordHash, 'teacher', '李老师', '13800000002');
+  insertUser.run('parent1', passwordHash, 'parent', '王女士', '13900000001');
+  insertUser.run('parent2', passwordHash, 'parent', '刘女士', '13900000002');
   
   const insertCourse = db.prepare(`
     INSERT INTO courses (name, total_hours, price, validity_days, description)

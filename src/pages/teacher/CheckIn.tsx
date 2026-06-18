@@ -38,9 +38,10 @@ export default function TeacherCheckIn() {
     
     try {
       setLoading(true);
-      const [studentsRes, checkRes] = await Promise.all([
+      const [studentsRes, checkRes, attendanceRes] = await Promise.all([
         classApi.getStudents(selectedClass),
         attendanceApi.checkExists(selectedClass, attendanceDate),
+        attendanceApi.getClassAttendance(selectedClass, attendanceDate),
       ]);
       
       const studentData = studentsRes.data || [];
@@ -50,6 +51,15 @@ export default function TeacherCheckIn() {
       studentData.forEach(s => {
         initialStatus[s.id] = 'present';
       });
+      
+      if (attendanceRes.data && attendanceRes.data.length > 0) {
+        attendanceRes.data.forEach((record: any) => {
+          if (record.studentId && initialStatus.hasOwnProperty(record.studentId)) {
+            initialStatus[record.studentId] = record.status as 'present' | 'absent' | 'leave';
+          }
+        });
+      }
+      
       setAttendanceStatus(initialStatus);
       setAlreadySubmitted(checkRes.data?.exists || false);
     } finally {
@@ -156,9 +166,9 @@ export default function TeacherCheckIn() {
         </div>
 
         {alreadySubmitted && (
-          <div className="mb-4 p-4 bg-amber-50 rounded-xl flex items-center gap-3 text-amber-700">
+          <div className="mb-4 p-4 bg-blue-50 rounded-xl flex items-center gap-3 text-blue-700">
             <AlertCircle className="w-5 h-5" />
-            <span>该班级今日考勤已提交，如需修改请联系管理员</span>
+            <span>该班级今日考勤已提交，您可以修改后重新提交，系统会自动调整课时</span>
           </div>
         )}
 
@@ -202,34 +212,31 @@ export default function TeacherCheckIn() {
                   <div className="flex items-center gap-2">
                     <button
                       onClick={() => handleStatusChange(student.id, 'present')}
-                      disabled={alreadySubmitted}
                       className={`px-4 py-2 rounded-xl text-sm font-medium transition-all ${
                         attendanceStatus[student.id] === 'present'
                           ? 'bg-emerald-500 text-white shadow-lg shadow-emerald-500/30'
                           : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
-                      } ${alreadySubmitted ? 'opacity-50 cursor-not-allowed' : ''}`}
+                      }`}
                     >
                       出勤
                     </button>
                     <button
                       onClick={() => handleStatusChange(student.id, 'absent')}
-                      disabled={alreadySubmitted}
                       className={`px-4 py-2 rounded-xl text-sm font-medium transition-all ${
                         attendanceStatus[student.id] === 'absent'
                           ? 'bg-red-500 text-white shadow-lg shadow-red-500/30'
                           : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
-                      } ${alreadySubmitted ? 'opacity-50 cursor-not-allowed' : ''}`}
+                      }`}
                     >
                       缺勤
                     </button>
                     <button
                       onClick={() => handleStatusChange(student.id, 'leave')}
-                      disabled={alreadySubmitted}
                       className={`px-4 py-2 rounded-xl text-sm font-medium transition-all ${
                         attendanceStatus[student.id] === 'leave'
                           ? 'bg-amber-500 text-white shadow-lg shadow-amber-500/30'
                           : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
-                      } ${alreadySubmitted ? 'opacity-50 cursor-not-allowed' : ''}`}
+                      }`}
                     >
                       请假
                     </button>
@@ -238,18 +245,16 @@ export default function TeacherCheckIn() {
               ))}
             </div>
 
-            {!alreadySubmitted && (
-              <div className="mt-6 flex justify-end">
-                <button
-                  onClick={handleSubmit}
-                  disabled={submitting}
-                  className="px-8 py-3 bg-gradient-to-r from-blue-500 to-blue-600 text-white font-medium rounded-xl hover:from-blue-600 hover:to-blue-700 transition-all shadow-lg shadow-blue-500/30 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
-                >
-                  <CalendarCheck className="w-5 h-5" />
-                  {submitting ? '提交中...' : '提交考勤'}
-                </button>
-              </div>
-            )}
+            <div className="mt-6 flex justify-end">
+              <button
+                onClick={handleSubmit}
+                disabled={submitting}
+                className="px-8 py-3 bg-gradient-to-r from-blue-500 to-blue-600 text-white font-medium rounded-xl hover:from-blue-600 hover:to-blue-700 transition-all shadow-lg shadow-blue-500/30 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+              >
+                <CalendarCheck className="w-5 h-5" />
+                {submitting ? '提交中...' : (alreadySubmitted ? '更新考勤' : '提交考勤')}
+              </button>
+            </div>
           </>
         )}
 

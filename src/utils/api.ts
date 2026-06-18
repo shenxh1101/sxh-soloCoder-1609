@@ -197,9 +197,32 @@ export const reportApi = {
   getAttendanceReport: (classId: number) =>
     request(`/reports/attendance/${classId}`),
   
-  exportRoster: (classId: number) => {
+  exportRoster: async (classId: number) => {
     const token = localStorage.getItem('token');
-    window.open(`${API_BASE}/reports/export/roster/${classId}?token=${token}`, '_blank');
+    try {
+      const response = await fetch(`${API_BASE}/reports/export/roster/${classId}`, {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+        },
+      });
+      
+      if (!response.ok) {
+        throw new Error('导出失败');
+      }
+      
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `class-roster-${classId}.csv`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      window.URL.revokeObjectURL(url);
+    } catch (error) {
+      console.error('导出失败:', error);
+      alert('导出失败，请重试');
+    }
   },
 };
 

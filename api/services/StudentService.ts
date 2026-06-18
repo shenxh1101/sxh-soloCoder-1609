@@ -1,5 +1,5 @@
 import studentRepository from '../repositories/StudentRepository';
-import classRepository from '../repositories/ClassRepository';
+import courseRepository from '../repositories/CourseRepository';
 import type { CreateStudentRequest, EnrollRequest } from '../../shared/types';
 
 export class StudentService {
@@ -37,6 +37,23 @@ export class StudentService {
     const student = studentRepository.findById(studentId);
     if (!student) {
       throw new Error('学员不存在');
+    }
+    
+    if (!data.courseId || data.courseId <= 0) {
+      throw new Error('请选择有效的课程');
+    }
+    
+    if (!data.totalHours || data.totalHours <= 0) {
+      throw new Error('总课时必须大于0');
+    }
+    
+    if (data.paidAmount === undefined || data.paidAmount === null || data.paidAmount < 0) {
+      throw new Error('缴费金额不能为负数');
+    }
+    
+    const course = courseRepository.findById(data.courseId);
+    if (!course) {
+      throw new Error('所选课程不存在');
     }
     
     return studentRepository.enroll(studentId, data.courseId, data.totalHours, data.paidAmount);

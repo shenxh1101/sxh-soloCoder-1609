@@ -167,6 +167,9 @@ export default function Login() {
             <p className="text-center text-sm text-gray-500">
               测试账号：admin/123456、consultant1/123456、teacher1/123456
             </p>
+            <p className="text-center text-sm text-gray-500 mt-1">
+              家长账号：13900000001/123456、13900000002/123456
+            </p>
           </div>
         </div>
       </div>

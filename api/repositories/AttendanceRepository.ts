@@ -11,7 +11,20 @@ export class AttendanceRepository {
         VALUES (?, ?, ?, ?)
       `);
       
-      const updateHoursStmt = this.db.prepare(`
+      const getOldStatusStmt = this.db.prepare(`
+        SELECT status FROM attendance_records 
+        WHERE class_id = ? AND student_id = ? AND attendance_date = ?
+      `);
+      
+      const addHoursStmt = this.db.prepare(`
+        UPDATE enrollments 
+        SET remaining_hours = remaining_hours + 1
+        WHERE student_id = ? 
+          AND course_id = (SELECT course_id FROM classes WHERE id = ?)
+          AND is_frozen = 0
+      `);
+      
+      const deductHoursStmt = this.db.prepare(`
         UPDATE enrollments 
         SET remaining_hours = remaining_hours - 1
         WHERE student_id = ? 
@@ -21,10 +34,17 @@ export class AttendanceRepository {
       `);
       
       for (const record of records) {
+        const oldRecord = getOldStatusStmt.get(classId, record.studentId, attendanceDate) as { status: string } | undefined;
+        const oldStatus = oldRecord?.status;
+        
         insertStmt.run(classId, record.studentId, attendanceDate, record.status);
         
-        if (record.status === 'present') {
-          updateHoursStmt.run(record.studentId, classId);
+        if (oldStatus === 'present' && record.status !== 'present') {
+          addHoursStmt.run(record.studentId, classId);
+        }
+        
+        if (oldStatus !== 'present' && record.status === 'present') {
+          deductHoursStmt.run(record.studentId, classId);
         }
       }
       

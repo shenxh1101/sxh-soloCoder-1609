@@ -8,6 +8,7 @@ import ConsultantStudentList from '@/pages/consultant/StudentList';
 import ConsultantStudentForm from '@/pages/consultant/StudentForm';
 import ConsultantStudentDetail from '@/pages/consultant/StudentDetail';
 import ConsultantClassList from '@/pages/consultant/ClassList';
+import ConsultantClassDetail from '@/pages/consultant/ClassDetail';
 import ConsultantAutoAssign from '@/pages/consultant/AutoAssign';
 
 import TeacherDashboard from '@/pages/teacher/Dashboard';
@@ -38,6 +39,7 @@ export default function App() {
           <Route path="/consultant/students/:id" element={<ConsultantStudentDetail />} />
           <Route path="/consultant/students/:id/edit" element={<ConsultantStudentForm />} />
           <Route path="/consultant/classes" element={<ConsultantClassList />} />
+          <Route path="/consultant/classes/:id" element={<ConsultantClassDetail />} />
           <Route path="/consultant/auto-assign" element={<ConsultantAutoAssign />} />
         </Route>
 
