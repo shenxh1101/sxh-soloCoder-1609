@@ -10,6 +10,7 @@ import ConsultantStudentDetail from '@/pages/consultant/StudentDetail';
 import ConsultantClassList from '@/pages/consultant/ClassList';
 import ConsultantClassDetail from '@/pages/consultant/ClassDetail';
 import ConsultantAutoAssign from '@/pages/consultant/AutoAssign';
+import HourlyLogsPage from '@/pages/HourlyLogsPage';
 
 import TeacherDashboard from '@/pages/teacher/Dashboard';
 import TeacherCheckIn from '@/pages/teacher/CheckIn';
@@ -41,6 +42,7 @@ export default function App() {
           <Route path="/consultant/classes" element={<ConsultantClassList />} />
           <Route path="/consultant/classes/:id" element={<ConsultantClassDetail />} />
           <Route path="/consultant/auto-assign" element={<ConsultantAutoAssign />} />
+          <Route path="/consultant/hourly-logs" element={<HourlyLogsPage />} />
         </Route>
 
         <Route element={<MainLayout allowedRoles={['teacher']} />}>
@@ -52,6 +54,7 @@ export default function App() {
         <Route element={<MainLayout allowedRoles={['parent']} />}>
           <Route path="/parent" element={<ParentDashboard />} />
           <Route path="/parent/records" element={<ParentRecords />} />
+          <Route path="/parent/hourly-logs" element={<HourlyLogsPage />} />
         </Route>
 
         <Route element={<MainLayout allowedRoles={['admin']} />}>

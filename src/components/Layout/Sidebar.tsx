@@ -32,6 +32,7 @@ const consultantMenu: MenuItem[] = [
   { path: '/consultant/students/new', label: '新增学员', icon: UserPlus },
   { path: '/consultant/classes', label: '班级列表', icon: GraduationCap },
   { path: '/consultant/auto-assign', label: '自动分班', icon: UserCheck },
+  { path: '/consultant/hourly-logs', label: '课时流水', icon: Clock },
 ];
 
 const teacherMenu: MenuItem[] = [
@@ -43,6 +44,7 @@ const teacherMenu: MenuItem[] = [
 const parentMenu: MenuItem[] = [
   { path: '/parent', label: '首页', icon: LayoutDashboard },
   { path: '/parent/records', label: '上课记录', icon: History },
+  { path: '/parent/hourly-logs', label: '课时流水', icon: Clock },
 ];
 
 const adminMenu: MenuItem[] = [

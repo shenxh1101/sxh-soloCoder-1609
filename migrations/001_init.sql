@@ -93,3 +93,26 @@ CREATE INDEX idx_attendance_class_date ON attendance_records(class_id, attendanc
 CREATE INDEX idx_attendance_student ON attendance_records(student_id);
 CREATE INDEX idx_enrollments_student ON enrollments(student_id);
 CREATE INDEX idx_enrollments_expire ON enrollments(expire_date, is_frozen);
+
+CREATE TABLE hourly_logs (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  student_id INTEGER NOT NULL,
+  course_id INTEGER NOT NULL,
+  class_id INTEGER,
+  change_type VARCHAR(20) NOT NULL CHECK (change_type IN ('deduct', 'refund', 'enroll', 'manual')),
+  change_amount INTEGER NOT NULL,
+  balance_after INTEGER NOT NULL,
+  reason VARCHAR(500) NOT NULL,
+  operator_id INTEGER,
+  related_attendance_id INTEGER,
+  created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY (student_id) REFERENCES students(id),
+  FOREIGN KEY (course_id) REFERENCES courses(id),
+  FOREIGN KEY (class_id) REFERENCES classes(id),
+  FOREIGN KEY (operator_id) REFERENCES users(id),
+  FOREIGN KEY (related_attendance_id) REFERENCES attendance_records(id)
+);
+
+CREATE INDEX idx_hourly_logs_student ON hourly_logs(student_id);
+CREATE INDEX idx_hourly_logs_course ON hourly_logs(course_id);
+CREATE INDEX idx_hourly_logs_created ON hourly_logs(created_at);

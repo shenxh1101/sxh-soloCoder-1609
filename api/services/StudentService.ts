@@ -33,7 +33,7 @@ export class StudentService {
     return studentRepository.addConsultationRecord(studentId, content, consultantId, followUpStatus);
   }
 
-  enrollStudent(studentId: number, data: EnrollRequest) {
+  enrollStudent(studentId: number, data: EnrollRequest, operatorId: number | null = null) {
     const student = studentRepository.findById(studentId);
     if (!student) {
       throw new Error('学员不存在');
@@ -56,7 +56,7 @@ export class StudentService {
       throw new Error('所选课程不存在');
     }
     
-    return studentRepository.enroll(studentId, data.courseId, data.totalHours, data.paidAmount);
+    return studentRepository.enroll(studentId, data.courseId, data.totalHours, data.paidAmount, operatorId);
   }
 
   getStudentsByParentPhone(parentPhone: string) {

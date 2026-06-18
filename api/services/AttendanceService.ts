@@ -2,11 +2,12 @@ import attendanceRepository from '../repositories/AttendanceRepository';
 import type { AttendanceSubmitRequest } from '../../shared/types';
 
 export class AttendanceService {
-  submitAttendance(data: AttendanceSubmitRequest) {
+  submitAttendance(data: AttendanceSubmitRequest, operatorId: number | null = null) {
     return attendanceRepository.submitAttendance(
       data.classId,
       data.attendanceDate,
-      data.records
+      data.records,
+      operatorId
     );
   }
 
@@ -19,15 +20,11 @@ export class AttendanceService {
   }
 
   getAttendanceStatistics(classId: number) {
-    return attendanceRepository.getAttendanceStatistics(classId);
-  }
-
-  getParentAttendanceRecords(parentPhone: string) {
-    return attendanceRepository.getParentAttendanceRecords(parentPhone);
+    return attendanceRepository.getStatistics(classId);
   }
 
   hasAttendanceForDate(classId: number, date: string) {
-    return attendanceRepository.hasAttendanceForDate(classId, date);
+    return attendanceRepository.checkExists(classId, date);
   }
 }
 

@@ -108,9 +108,18 @@ export default function ClassDetail() {
     return <div className="text-center py-12 text-slate-500">班级不存在</div>;
   }
 
-  const availableClasses = allClasses.filter(
-    c => c.id !== classId && c.status === 'active' && c.currentStudents < c.maxStudents
-  );
+  const availableClasses = allClasses.filter(c => {
+    if (c.id === classId) return false;
+    if (c.status !== 'active') return false;
+    if (c.currentStudents >= c.maxStudents) return false;
+    
+    if (classInfo && selectedStudent) {
+      if (c.courseId !== classInfo.courseId) return false;
+      if (selectedStudent.age < c.minAge || selectedStudent.age > c.maxAge) return false;
+    }
+    
+    return true;
+  });
 
   return (
     <div className="space-y-6">

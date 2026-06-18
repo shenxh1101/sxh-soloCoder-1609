@@ -13,6 +13,7 @@ import type {
   ClassRosterReport,
   ParentStudentInfo,
   ParentAttendanceRecord,
+  HourlyLog,
   LoginRequest,
   CreateStudentRequest,
   EnrollRequest,
@@ -223,6 +224,18 @@ export const reportApi = {
       console.error('导出失败:', error);
       alert('导出失败，请重试');
     }
+  },
+
+  getHourlyLogsByStudent: (studentId: number) => {
+    return request<HourlyLog[]>(`/hourly-logs/student/${studentId}`);
+  },
+
+  getAllHourlyLogs: () => {
+    return request<HourlyLog[]>(`/hourly-logs/all`);
+  },
+
+  getParentHourlyLogs: () => {
+    return request<HourlyLog[]>(`/hourly-logs/parent`);
   },
 };
 

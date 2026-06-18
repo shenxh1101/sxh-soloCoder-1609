@@ -1,5 +1,6 @@
 import { getDb } from '../db';
-import type { Student, StudentWithDetails, CreateStudentRequest, ConsultationRecord, Enrollment } from '../../shared/types';
+import type { Student, StudentWithDetails, ConsultationRecord, Enrollment, CreateStudentRequest } from '../../shared/types';
+import hourlyLogRepository from './HourlyLogRepository';
 
 export class StudentRepository {
   private db = getDb();
@@ -141,7 +142,7 @@ export class StudentRepository {
     return Number(result.lastInsertRowid);
   }
 
-  enroll(studentId: number, courseId: number, totalHours: number, paidAmount: number): number {
+  enroll(studentId: number, courseId: number, totalHours: number, paidAmount: number, operatorId: number | null = null): number {
     const today = new Date();
     const course = this.db.prepare('SELECT validity_days FROM courses WHERE id = ?').get(courseId) as any;
     const expireDate = new Date(today);
@@ -163,6 +164,18 @@ export class StudentRepository {
     this.db.prepare(`
       UPDATE students SET status = 'enrolled' WHERE id = ?
     `).run(studentId);
+
+    hourlyLogRepository.createLog(
+      studentId,
+      courseId,
+      null,
+      'enroll',
+      totalHours,
+      totalHours,
+      `报名成功，充值${totalHours}课时，实付¥${paidAmount}`,
+      operatorId,
+      null
+    );
     
     return Number(result.lastInsertRowid);
   }

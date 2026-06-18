@@ -19,6 +19,7 @@ import attendanceRoutes from './routes/attendance'
 import reportRoutes from './routes/reports'
 import parentRoutes from './routes/parent'
 import userRoutes from './routes/users'
+import hourlyLogRoutes from './routes/hourly-logs'
 
 // for esm mode
 const __filename = fileURLToPath(import.meta.url)
@@ -44,6 +45,7 @@ app.use('/api/attendance', attendanceRoutes)
 app.use('/api/reports', reportRoutes)
 app.use('/api/parent', parentRoutes)
 app.use('/api/users', userRoutes)
+app.use('/api/hourly-logs', hourlyLogRoutes)
 
 /**
  * health

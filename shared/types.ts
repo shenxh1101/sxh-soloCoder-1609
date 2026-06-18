@@ -172,11 +172,12 @@ export interface ParentStudentInfo {
   id: number;
   name: string;
   age: number;
+  status: 'consulting' | 'enrolled' | 'suspended';
   className?: string;
   courseName?: string;
   remainingHours: number;
   totalHours: number;
-  expireDate: string;
+  expireDate?: string;
   isFrozen: boolean;
 }
 
@@ -185,4 +186,22 @@ export interface ParentAttendanceRecord {
   className: string;
   attendanceDate: string;
   status: 'present' | 'absent' | 'leave';
+}
+
+export interface HourlyLog {
+  id: number;
+  studentId: number;
+  studentName?: string;
+  courseId: number;
+  courseName?: string;
+  classId?: number;
+  className?: string;
+  changeType: 'deduct' | 'refund' | 'enroll' | 'manual';
+  changeAmount: number;
+  balanceAfter: number;
+  reason: string;
+  operatorId?: number;
+  operatorName?: string;
+  relatedAttendanceId?: number;
+  createdAt: string;
 }

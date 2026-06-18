@@ -138,17 +138,17 @@ router.post('/:id/consultations', authenticateToken, requireRole('consultant', '
   }
 });
 
-router.post('/:id/enroll', authenticateToken, requireRole('consultant', 'admin'), (req, res) => {
+router.post('/:id/enroll', authenticateToken, requireRole('consultant', 'admin'), (req: AuthRequest, res) => {
   try {
     const id = parseInt(req.params.id);
-    const enrollmentId = studentService.enrollStudent(id, req.body);
+    const enrollmentId = studentService.enrollStudent(id, req.body, req.user?.id || null);
     
     res.json({
       success: true,
       data: { id: enrollmentId }
     });
   } catch (error: any) {
-    res.status(500).json({
+    res.status(400).json({
       success: false,
       message: error.message || '报名失败'
     });

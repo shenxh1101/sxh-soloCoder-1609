@@ -40,7 +40,7 @@ export class ReportService {
     const cls = classRepository.findById(classId);
     if (!cls) return null;
 
-    const statistics = attendanceRepository.getAttendanceStatistics(classId);
+    const statistics = attendanceRepository.getStatistics(classId);
     
     const dates = this.db.prepare(`
       SELECT DISTINCT attendance_date 

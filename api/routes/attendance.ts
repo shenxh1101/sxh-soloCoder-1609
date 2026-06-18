@@ -1,12 +1,12 @@
 import { Router } from 'express';
 import attendanceService from '../services/AttendanceService';
-import { authenticateToken, requireRole } from '../middleware/auth';
+import { authenticateToken, requireRole, AuthRequest } from '../middleware/auth';
 
 const router = Router();
 
-router.post('/', authenticateToken, requireRole('teacher', 'admin'), (req, res) => {
+router.post('/', authenticateToken, requireRole('teacher', 'admin'), (req: AuthRequest, res) => {
   try {
-    const success = attendanceService.submitAttendance(req.body);
+    const success = attendanceService.submitAttendance(req.body, req.user?.id || null);
     
     res.json({
       success,

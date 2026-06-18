@@ -12,12 +12,13 @@ export class ParentService {
         s.id,
         s.name,
         s.age,
+        s.status,
         cl.name as className,
         co.name as courseName,
-        e.total_hours as totalHours,
-        e.remaining_hours as remainingHours,
+        COALESCE(e.total_hours, 0) as totalHours,
+        COALESCE(e.remaining_hours, 0) as remainingHours,
         e.expire_date as expireDate,
-        e.is_frozen as isFrozen
+        COALESCE(e.is_frozen, 0) as isFrozen
       FROM students s
       LEFT JOIN classes cl ON s.class_id = cl.id
       LEFT JOIN enrollments e ON s.id = e.student_id
@@ -26,7 +27,11 @@ export class ParentService {
       ORDER BY s.created_at DESC
     `).all(parentPhone) as ParentStudentInfo[];
 
-    return students;
+    return students.map(s => ({
+      ...s,
+      isFrozen: !!s.isFrozen,
+      expireDate: s.status === 'enrolled' ? s.expireDate : undefined,
+    }));
   }
 
   getRemainingHours(parentPhone: string) {
