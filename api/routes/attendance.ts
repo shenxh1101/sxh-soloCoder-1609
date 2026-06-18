@@ -6,12 +6,20 @@ const router = Router();
 
 router.post('/', authenticateToken, requireRole('teacher', 'admin'), (req: AuthRequest, res) => {
   try {
-    const success = attendanceService.submitAttendance(req.body, req.user?.id || null);
+    const result = attendanceService.submitAttendance(req.body, req.user?.id || null);
     
-    res.json({
-      success,
-      message: success ? '签到成功' : '签到失败'
-    });
+    if (result.success && result.warnings.length > 0) {
+      res.json({
+        success: true,
+        message: '签到完成（部分学员有提示）',
+        warnings: result.warnings
+      });
+    } else {
+      res.json({
+        success: result.success,
+        message: result.success ? '签到成功' : '签到失败'
+      });
+    }
   } catch (error) {
     res.status(500).json({
       success: false,

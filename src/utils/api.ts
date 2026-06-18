@@ -23,6 +23,18 @@ import type {
 
 const API_BASE = '/api';
 
+function buildQuery(params?: Record<string, any>): string {
+  if (!params) return '';
+  const pairs: string[] = [];
+  Object.keys(params).forEach(k => {
+    const v = params[k];
+    if (v !== undefined && v !== null && v !== '') {
+      pairs.push(`${encodeURIComponent(k)}=${encodeURIComponent(v)}`);
+    }
+  });
+  return pairs.length > 0 ? '?' + pairs.join('&') : '';
+}
+
 async function request<T>(
   url: string,
   options: RequestInit = {}
@@ -92,6 +104,12 @@ export const studentApi = {
   
   enroll: (id: number, data: EnrollRequest) =>
     request<{ id: number }>(`/students/${id}/enroll`, {
+      method: 'POST',
+      body: JSON.stringify(data),
+    }),
+
+  renew: (id: number, data: { courseId: number; addHours: number; paidAmount: number; extendDays?: number }) =>
+    request<{ remainingHours: number }>(`/students/${id}/renew`, {
       method: 'POST',
       body: JSON.stringify(data),
     }),
@@ -197,6 +215,9 @@ export const reportApi = {
   
   getAttendanceReport: (classId: number) =>
     request(`/reports/attendance/${classId}`),
+
+  getHourWarnings: () =>
+    request<{ expiringSoon: any[]; lowHours: any[]; longAbsent: any[] }>(`/reports/warnings`),
   
   exportRoster: async (classId: number) => {
     const token = localStorage.getItem('token');
@@ -226,16 +247,43 @@ export const reportApi = {
     }
   },
 
-  getHourlyLogsByStudent: (studentId: number) => {
-    return request<HourlyLog[]>(`/hourly-logs/student/${studentId}`);
+  getHourlyLogsByStudent: (studentId: number, filters?: any) => {
+    const q = buildQuery(filters);
+    return request<HourlyLog[]>(`/hourly-logs/student/${studentId}${q}`);
   },
 
-  getAllHourlyLogs: () => {
-    return request<HourlyLog[]>(`/hourly-logs/all`);
+  getAllHourlyLogs: (filters?: any) => {
+    const q = buildQuery(filters);
+    return request<HourlyLog[]>(`/hourly-logs/all${q}`);
   },
 
-  getParentHourlyLogs: () => {
-    return request<HourlyLog[]>(`/hourly-logs/parent`);
+  getParentHourlyLogs: (filters?: any) => {
+    const q = buildQuery(filters);
+    return request<HourlyLog[]>(`/hourly-logs/parent${q}`);
+  },
+
+  exportHourlyLogs: async (filters?: any) => {
+    const token = localStorage.getItem('token');
+    const q = buildQuery(filters);
+    try {
+      const response = await fetch(`${API_BASE}/hourly-logs/export${q}`, {
+        headers: { 'Authorization': `Bearer ${token}` },
+      });
+      if (!response.ok) throw new Error('导出失败');
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      const ts = new Date().toISOString().slice(0, 10);
+      a.download = `hourly-logs-${ts}.csv`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      window.URL.revokeObjectURL(url);
+    } catch (error) {
+      console.error('导出失败:', error);
+      alert('导出失败，请重试');
+    }
   },
 };
 

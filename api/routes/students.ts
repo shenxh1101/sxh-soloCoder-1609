@@ -155,4 +155,36 @@ router.post('/:id/enroll', authenticateToken, requireRole('consultant', 'admin')
   }
 });
 
+router.post('/:id/renew', authenticateToken, requireRole('consultant', 'admin'), (req: AuthRequest, res) => {
+  try {
+    const id = parseInt(req.params.id);
+    const { courseId, addHours, paidAmount, extendDays } = req.body;
+    const result = studentService.renewEnrollment(
+      id,
+      courseId,
+      addHours,
+      paidAmount || 0,
+      extendDays || 0,
+      req.user?.id || null
+    );
+
+    if (!result.success) {
+      return res.status(400).json({
+        success: false,
+        message: result.message || '续费失败'
+      });
+    }
+    
+    res.json({
+      success: true,
+      data: { remainingHours: result.remainingHours }
+    });
+  } catch (error: any) {
+    res.status(400).json({
+      success: false,
+      message: error.message || '续费失败'
+    });
+  }
+});
+
 export default router;

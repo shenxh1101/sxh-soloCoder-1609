@@ -12,7 +12,7 @@ export default function TeacherCheckIn() {
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [alreadySubmitted, setAlreadySubmitted] = useState(false);
-  const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
+  const [message, setMessage] = useState<{ type: 'success' | 'error' | 'warning'; text: string; warnings?: { studentName: string; message: string }[] } | null>(null);
 
   useEffect(() => {
     loadClasses();
@@ -93,8 +93,17 @@ export default function TeacherCheckIn() {
       });
       
       if (res.success) {
-        setMessage({ type: 'success', text: '考勤提交成功！已自动扣减课时。' });
+        if ((res as any).warnings && (res as any).warnings.length > 0) {
+          setMessage({ 
+            type: 'warning', 
+            text: '考勤已提交（部分学员有异常提示）', 
+            warnings: (res as any).warnings 
+          });
+        } else {
+          setMessage({ type: 'success', text: '考勤提交成功！已自动扣减课时。' });
+        }
         setAlreadySubmitted(true);
+        loadClassStudents();
       } else {
         setMessage({ type: 'error', text: res.message || '提交失败，请重试' });
       }
@@ -125,15 +134,26 @@ export default function TeacherCheckIn() {
       </div>
 
       {message && (
-        <div className={`p-4 rounded-xl flex items-center gap-3 ${
-          message.type === 'success' ? 'bg-emerald-50 text-emerald-700' : 'bg-red-50 text-red-700'
+        <div className={`p-4 rounded-xl flex items-start gap-3 ${
+          message.type === 'success' ? 'bg-emerald-50 text-emerald-700' :
+          message.type === 'warning' ? 'bg-amber-50 text-amber-700' :
+          'bg-red-50 text-red-700'
         }`}>
           {message.type === 'success' ? (
-            <CheckCircle className="w-5 h-5" />
+            <CheckCircle className="w-5 h-5 flex-shrink-0 mt-0.5" />
           ) : (
-            <AlertCircle className="w-5 h-5" />
+            <AlertCircle className="w-5 h-5 flex-shrink-0 mt-0.5" />
           )}
-          <span>{message.text}</span>
+          <div>
+            <span>{message.text}</span>
+            {message.warnings && message.warnings.length > 0 && (
+              <ul className="mt-2 space-y-1 text-sm">
+                {message.warnings.map((w, i) => (
+                  <li key={i}>· {w.message}</li>
+                ))}
+              </ul>
+            )}
+          </div>
         </div>
       )}
 
@@ -190,12 +210,22 @@ export default function TeacherCheckIn() {
             </div>
 
             <div className="space-y-3">
-              {students.map((student) => (
+              {students.map((student) => {
+                const isFrozen = !!student.enrollment?.isFrozen;
+                const isLowHours = !isFrozen && student.enrollment && student.enrollment.remainingHours <= 3;
+                const noHours = !isFrozen && student.enrollment && student.enrollment.remainingHours <= 0;
+
+                return (
                 <div 
                   key={student.id} 
-                  className="flex items-center justify-between p-4 rounded-xl border border-slate-200 hover:border-blue-300 transition-colors"
+                  className={`flex items-center justify-between p-4 rounded-xl border transition-colors ${
+                    isFrozen ? 'border-amber-300 bg-amber-50/50' :
+                    noHours ? 'border-red-300 bg-red-50/50' :
+                    isLowHours ? 'border-orange-300 bg-orange-50/50' :
+                    'border-slate-200 hover:border-blue-300'
+                  }`}
                 >
-                  <div className="flex items-center gap-4">
+                  <div className="flex items-center gap-4 flex-wrap">
                     <div className="w-10 h-10 rounded-full bg-gradient-to-br from-blue-400 to-blue-600 flex items-center justify-center">
                       <span className="text-white font-medium text-sm">{student.name.charAt(0)}</span>
                     </div>
@@ -204,8 +234,31 @@ export default function TeacherCheckIn() {
                       <p className="text-sm text-slate-500">{student.age}岁 · {student.parentPhone}</p>
                     </div>
                     {student.enrollment && (
-                      <div className="ml-4 px-3 py-1 bg-blue-50 rounded-lg">
-                        <span className="text-xs text-blue-700">剩余 {student.enrollment.remainingHours} 课时</span>
+                      <div className="ml-2 flex items-center gap-2 flex-wrap">
+                        <div className={`px-3 py-1 rounded-lg ${
+                          isFrozen ? 'bg-amber-100' :
+                          noHours ? 'bg-red-100' :
+                          isLowHours ? 'bg-orange-100' :
+                          'bg-blue-50'
+                        }`}>
+                          <span className={`text-xs font-medium ${
+                            isFrozen ? 'text-amber-700' :
+                            noHours ? 'text-red-700' :
+                            isLowHours ? 'text-orange-700' :
+                            'text-blue-700'
+                          }`}>
+                            剩余 {student.enrollment.remainingHours} 课时
+                          </span>
+                        </div>
+                        {isFrozen && (
+                          <span className="px-2 py-0.5 bg-amber-200 text-amber-800 text-xs font-medium rounded">已冻结</span>
+                        )}
+                        {noHours && (
+                          <span className="px-2 py-0.5 bg-red-200 text-red-800 text-xs font-medium rounded">需续费</span>
+                        )}
+                        {isLowHours && !noHours && (
+                          <span className="px-2 py-0.5 bg-orange-200 text-orange-800 text-xs font-medium rounded">课时不足</span>
+                        )}
                       </div>
                     )}
                   </div>
@@ -242,7 +295,8 @@ export default function TeacherCheckIn() {
                     </button>
                   </div>
                 </div>
-              ))}
+              );
+            })}
             </div>
 
             <div className="mt-6 flex justify-end">

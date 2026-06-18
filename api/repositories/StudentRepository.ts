@@ -180,6 +180,72 @@ export class StudentRepository {
     return Number(result.lastInsertRowid);
   }
 
+  renewEnrollment(
+    studentId: number,
+    courseId: number,
+    addHours: number,
+    paidAmount: number,
+    extendDays: number = 0,
+    operatorId: number | null = null
+  ): { success: boolean; remainingHours: number; message?: string } {
+    const existing = this.db.prepare(`
+      SELECT * FROM enrollments WHERE student_id = ? AND course_id = ?
+    `).get(studentId, courseId) as any;
+
+    if (!existing) {
+      return { success: false, remainingHours: 0, message: '未找到对应报名记录，请先报名' };
+    }
+
+    if (addHours <= 0) {
+      return { success: false, remainingHours: existing.remaining_hours, message: '追加课时必须大于0' };
+    }
+
+    const transaction = this.db.transaction(() => {
+      this.db.prepare(`
+        UPDATE enrollments 
+        SET 
+          total_hours = total_hours + ?,
+          remaining_hours = remaining_hours + ?,
+          paid_amount = paid_amount + ?,
+          expire_date = CASE
+            WHEN ? > 0 THEN DATE(MAX(expire_date, DATE('now')), '+' || ? || ' days')
+            ELSE expire_date
+          END
+        WHERE id = ?
+      `).run(addHours, addHours, paidAmount, extendDays, extendDays, existing.id);
+
+      const updated = this.db.prepare(`
+        SELECT remaining_hours FROM enrollments WHERE id = ?
+      `).get(existing.id) as { remaining_hours: number };
+
+      const reason = extendDays > 0
+        ? `续费追加${addHours}课时，实付¥${paidAmount}，有效期延长${extendDays}天`
+        : `续费追加${addHours}课时，实付¥${paidAmount}`;
+
+      hourlyLogRepository.createLog(
+        studentId,
+        courseId,
+        null,
+        'enroll',
+        addHours,
+        updated.remaining_hours,
+        reason,
+        operatorId,
+        null
+      );
+
+      return updated.remaining_hours;
+    });
+
+    try {
+      const remaining = transaction();
+      return { success: true, remainingHours: remaining };
+    } catch (error) {
+      console.error('续费失败:', error);
+      return { success: false, remainingHours: existing.remaining_hours, message: '续费失败' };
+    }
+  }
+
   findByParentPhone(parentPhone: string): StudentWithDetails[] {
     const students = this.db.prepare(`
       SELECT 

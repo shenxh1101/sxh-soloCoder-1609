@@ -68,4 +68,19 @@ router.get('/export/roster/:classId', authenticateToken, requireRole('admin', 'c
   }
 });
 
+router.get('/warnings', authenticateToken, requireRole('admin', 'consultant'), (req, res) => {
+  try {
+    const data = reportService.getHourWarnings();
+    res.json({
+      success: true,
+      data,
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: '获取预警数据失败',
+    });
+  }
+});
+
 export default router;

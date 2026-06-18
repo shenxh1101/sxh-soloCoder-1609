@@ -66,6 +66,33 @@ export class StudentService {
   getUnassignedStudents() {
     return studentRepository.getUnassignedStudents();
   }
+
+  renewEnrollment(
+    studentId: number,
+    courseId: number,
+    addHours: number,
+    paidAmount: number,
+    extendDays: number = 0,
+    operatorId: number | null = null
+  ) {
+    if (!courseId || courseId <= 0) {
+      throw new Error('请选择有效的课程');
+    }
+    
+    if (!addHours || addHours <= 0) {
+      throw new Error('追加课时必须大于0');
+    }
+    
+    if (paidAmount === undefined || paidAmount === null || paidAmount < 0) {
+      throw new Error('缴费金额不能为负数');
+    }
+
+    if (extendDays < 0) {
+      throw new Error('有效期天数不能为负数');
+    }
+    
+    return studentRepository.renewEnrollment(studentId, courseId, addHours, paidAmount, extendDays, operatorId);
+  }
 }
 
 export default new StudentService();

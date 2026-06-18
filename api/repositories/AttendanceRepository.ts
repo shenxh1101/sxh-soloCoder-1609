@@ -82,11 +82,13 @@ class AttendanceRepository {
     attendanceDate: string, 
     records: { studentId: number; status: string }[],
     operatorId: number | null = null
-  ): boolean {
+  ): { success: boolean; warnings: { studentId: number; studentName: string; message: string }[] } {
     const courseStmt = this.db.prepare('SELECT course_id FROM classes WHERE id = ?');
     const courseInfo = courseStmt.get(classId) as { course_id: number } | undefined;
-    if (!courseInfo) return false;
+    if (!courseInfo) return { success: false, warnings: [] };
     const courseId = courseInfo.course_id;
+
+    const warnings: { studentId: number; studentName: string; message: string }[] = [];
 
     const transaction = this.db.transaction((records: any[]) => {
       const insertStmt = this.db.prepare(`
@@ -103,6 +105,10 @@ class AttendanceRepository {
         SELECT id, remaining_hours, is_frozen FROM enrollments 
         WHERE student_id = ? AND course_id = ?
       `);
+
+      const getStudentNameStmt = this.db.prepare(`
+        SELECT name FROM students WHERE id = ?
+      `);
       
       const addHoursStmt = this.db.prepare(`
         UPDATE enrollments 
@@ -117,48 +123,73 @@ class AttendanceRepository {
       `);
 
       for (const record of records) {
+        const studentName = (getStudentNameStmt.get(record.studentId) as { name: string } | undefined)?.name || '';
+
         const oldRecord = getOldStatusStmt.get(classId, record.studentId, attendanceDate) as { id: number; status: string } | undefined;
         const oldStatus = oldRecord?.status;
         
-        const result = insertStmt.run(classId, record.studentId, attendanceDate, record.status);
-        const attendanceId = Number(result.lastInsertRowid);
+        insertStmt.run(classId, record.studentId, attendanceDate, record.status);
+        const attendanceId = this.db.prepare('SELECT last_insert_rowid() as id').pluck().get() as number;
         
-        const enrollment = getEnrollmentStmt.get(record.studentId, courseId) as any;
-        if (!enrollment) continue;
+        const enrollmentBefore = getEnrollmentStmt.get(record.studentId, courseId) as any;
+        if (!enrollmentBefore) continue;
         
-        let hoursChanged = 0;
+        let actualHoursChange = 0;
         let changeType: 'deduct' | 'refund' | null = null;
         let reason = '';
 
         if (oldStatus === 'present' && record.status !== 'present') {
-          if (!enrollment.is_frozen) {
-            addHoursStmt.run(enrollment.id);
+          if (enrollmentBefore.is_frozen === 1) {
+            warnings.push({
+              studentId: record.studentId,
+              studentName,
+              message: `${studentName}课时已冻结，仅更新考勤状态，余额不变动`
+            });
+          } else {
+            const updateResult = addHoursStmt.run(enrollmentBefore.id);
+            if (updateResult.changes > 0) {
+              actualHoursChange = 1;
+              changeType = 'refund';
+              reason = `考勤修改：${attendanceDate} 出勤改为${record.status === 'absent' ? '缺勤' : '请假'}，补回1课时`;
+            }
           }
-          hoursChanged = 1;
-          changeType = 'refund';
-          reason = `考勤修改：${attendanceDate} 出勤改为${record.status === 'absent' ? '缺勤' : '请假'}，补回1课时`;
         }
         
         if (oldStatus !== 'present' && record.status === 'present') {
-          if (!enrollment.is_frozen && enrollment.remaining_hours > 0) {
-            deductHoursStmt.run(enrollment.id);
+          if (enrollmentBefore.is_frozen === 1) {
+            warnings.push({
+              studentId: record.studentId,
+              studentName,
+              message: `${studentName}课时已冻结，无法扣减课时，请先解冻`
+            });
+          } else if (enrollmentBefore.remaining_hours <= 0) {
+            warnings.push({
+              studentId: record.studentId,
+              studentName,
+              message: `${studentName}剩余课时不足，请先续费`
+            });
+          } else {
+            const updateResult = deductHoursStmt.run(enrollmentBefore.id);
+            if (updateResult.changes > 0) {
+              actualHoursChange = 1;
+              changeType = 'deduct';
+              reason = oldStatus 
+                ? `考勤修改：${attendanceDate} ${oldStatus === 'absent' ? '缺勤' : '请假'}改为出勤，扣减1课时`
+                : `${attendanceDate} 签到出勤，扣减1课时`;
+            }
           }
-          hoursChanged = 1;
-          changeType = 'deduct';
-          reason = oldStatus 
-            ? `考勤修改：${attendanceDate} ${oldStatus === 'absent' ? '缺勤' : '请假'}改为出勤，扣减1课时`
-            : `${attendanceDate} 签到出勤，扣减1课时`;
         }
 
-        if (changeType && hoursChanged > 0) {
-          const updatedEnrollment = getEnrollmentStmt.get(record.studentId, courseId) as any;
+        if (changeType && actualHoursChange > 0) {
+          const enrollmentAfter = getEnrollmentStmt.get(record.studentId, courseId) as any;
+          const balanceAfter = enrollmentAfter?.remaining_hours ?? enrollmentBefore.remaining_hours;
           hourlyLogRepository.createLog(
             record.studentId,
             courseId,
             classId,
             changeType,
-            changeType === 'deduct' ? -hoursChanged : hoursChanged,
-            updatedEnrollment?.remaining_hours ?? enrollment.remaining_hours,
+            changeType === 'deduct' ? -actualHoursChange : actualHoursChange,
+            balanceAfter,
             reason,
             operatorId,
             attendanceId
@@ -171,10 +202,10 @@ class AttendanceRepository {
     
     try {
       transaction(records);
-      return true;
+      return { success: true, warnings };
     } catch (error) {
       console.error('考勤提交失败:', error);
-      return false;
+      return { success: false, warnings };
     }
   }
 }

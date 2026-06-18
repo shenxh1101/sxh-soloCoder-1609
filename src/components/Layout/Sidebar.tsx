@@ -11,7 +11,8 @@ import {
   UserPlus,
   UserCheck,
   Clock,
-  History
+  History,
+  AlertTriangle
 } from 'lucide-react';
 import { useAuthStore } from '../../store/authStore';
 import type { User } from '../../../shared/types';
@@ -32,6 +33,7 @@ const consultantMenu: MenuItem[] = [
   { path: '/consultant/students/new', label: '新增学员', icon: UserPlus },
   { path: '/consultant/classes', label: '班级列表', icon: GraduationCap },
   { path: '/consultant/auto-assign', label: '自动分班', icon: UserCheck },
+  { path: '/consultant/warnings', label: '课时预警', icon: AlertTriangle },
   { path: '/consultant/hourly-logs', label: '课时流水', icon: Clock },
 ];
 

@@ -17,10 +17,14 @@ export default function StudentDetail() {
   const [loading, setLoading] = useState(true);
   const [showEnrollModal, setShowEnrollModal] = useState(false);
   const [showConsultationModal, setShowConsultationModal] = useState(false);
+  const [showRenewModal, setShowRenewModal] = useState(false);
   const [enrollForm, setEnrollForm] = useState({ courseId: '', totalHours: '', paidAmount: '' });
   const [enrollErrors, setEnrollErrors] = useState<Record<string, string>>({});
+  const [renewForm, setRenewForm] = useState({ courseId: '', addHours: '', paidAmount: '', extendDays: '' });
+  const [renewErrors, setRenewErrors] = useState<Record<string, string>>({});
   const [consultationForm, setConsultationForm] = useState({ content: '', followUpStatus: 'pending' });
   const [submitting, setSubmitting] = useState(false);
+  const [renewTargetCourse, setRenewTargetCourse] = useState<Enrollment | null>(null);
 
   useEffect(() => {
     loadData();
@@ -92,6 +96,74 @@ export default function StudentDetail() {
         loadData();
       } else {
         alert(res.message || '报名失败');
+      }
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const openRenewModal = (enrollment: Enrollment) => {
+    setRenewTargetCourse(enrollment);
+    const course = courses.find(c => c.id === enrollment.courseId);
+    setRenewForm({
+      courseId: enrollment.courseId.toString(),
+      addHours: course?.totalHours?.toString() || '',
+      paidAmount: course?.price?.toString() || '',
+      extendDays: '180',
+    });
+    setRenewErrors({});
+    setShowRenewModal(true);
+  };
+
+  const validateRenewForm = (): boolean => {
+    const errors: Record<string, string> = {};
+    
+    const addHours = parseInt(renewForm.addHours);
+    if (!renewForm.addHours || isNaN(addHours)) {
+      errors.addHours = '请输入追加课时';
+    } else if (addHours <= 0) {
+      errors.addHours = '追加课时必须大于0';
+    }
+    
+    const paidAmount = parseFloat(renewForm.paidAmount);
+    if (renewForm.paidAmount === '' || isNaN(paidAmount)) {
+      errors.paidAmount = '请输入缴费金额';
+    } else if (paidAmount < 0) {
+      errors.paidAmount = '缴费金额不能为负数';
+    }
+
+    const extendDays = parseInt(renewForm.extendDays);
+    if (renewForm.extendDays !== '' && !isNaN(extendDays) && extendDays < 0) {
+      errors.extendDays = '有效期不能为负数';
+    }
+    
+    setRenewErrors(errors);
+    return Object.keys(errors).length === 0;
+  };
+
+  const handleRenew = async () => {
+    if (!validateRenewForm()) {
+      return;
+    }
+
+    setSubmitting(true);
+    try {
+      const res = await studentApi.renew(studentId, {
+        courseId: parseInt(renewForm.courseId),
+        addHours: parseInt(renewForm.addHours),
+        paidAmount: parseFloat(renewForm.paidAmount),
+        extendDays: renewForm.extendDays ? parseInt(renewForm.extendDays) : 0,
+      });
+
+      if (res.success) {
+        alert(`续费成功！最新剩余课时：${res.data?.remainingHours}`);
+        setShowRenewModal(false);
+        setRenewTargetCourse(null);
+        setRenewForm({ courseId: '', addHours: '', paidAmount: '', extendDays: '' });
+        setRenewErrors({});
+        loadData();
+      } else {
+        alert(res.message || '续费失败');
       }
     } finally {
       setSubmitting(false);
@@ -327,9 +399,19 @@ export default function StudentDetail() {
                           <p className="text-xl font-bold text-blue-600">{enrollment.remainingHours}</p>
                         </div>
                       </div>
-                      <div className="mt-3 pt-3 border-t border-slate-200 flex justify-between text-sm">
+                      <div className="mt-3 pt-3 border-t border-slate-200 flex justify-between items-center text-sm">
                         <span className="text-slate-500">缴费金额</span>
-                        <span className="font-medium text-slate-900">¥{enrollment.paidAmount.toFixed(2)}</span>
+                        <div className="flex items-center gap-3">
+                          <span className="font-medium text-slate-900">¥{enrollment.paidAmount.toFixed(2)}</span>
+                          <button
+                            onClick={() => openRenewModal(enrollment)}
+                            disabled={!!enrollment.isFrozen}
+                            className="flex items-center gap-1 px-3 py-1 bg-blue-600 text-white rounded-lg text-xs hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                          >
+                            <Plus className="w-3 h-3" />
+                            <span>续费</span>
+                          </button>
+                        </div>
                       </div>
                     </div>
                   );
@@ -463,6 +545,105 @@ export default function StudentDetail() {
                   className="flex-1 px-4 py-2.5 bg-blue-600 text-white rounded-xl hover:bg-blue-700 transition-colors disabled:opacity-50"
                 >
                   {submitting ? '处理中...' : '确认报名'}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showRenewModal && renewTargetCourse && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-2xl p-6 w-full max-w-md">
+            <h3 className="text-lg font-semibold text-slate-900 mb-4">
+              续费 - {courses.find(c => c.id === renewTargetCourse.courseId)?.name || '课程'}
+            </h3>
+            <div className="mb-4 p-3 bg-blue-50 rounded-xl">
+              <div className="flex justify-between text-sm mb-1">
+                <span className="text-slate-500">当前剩余课时</span>
+                <span className="font-bold text-blue-700">{renewTargetCourse.remainingHours} 课时</span>
+              </div>
+              <div className="flex justify-between text-sm">
+                <span className="text-slate-500">有效期至</span>
+                <span className="font-medium text-slate-900">{renewTargetCourse.expireDate}</span>
+              </div>
+            </div>
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-2">追加课时数</label>
+                <input
+                  type="number"
+                  value={renewForm.addHours}
+                  onChange={(e) => {
+                    setRenewForm(prev => ({ ...prev, addHours: e.target.value }));
+                    if (renewErrors.addHours) {
+                      setRenewErrors(prev => ({ ...prev, addHours: '' }));
+                    }
+                  }}
+                  placeholder="请输入追加课时数"
+                  className={`w-full px-4 py-2.5 border rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent ${
+                    renewErrors.addHours ? 'border-red-400 focus:ring-red-500' : 'border-slate-200'
+                  }`}
+                />
+                {renewErrors.addHours && (
+                  <p className="mt-1 text-sm text-red-600">{renewErrors.addHours}</p>
+                )}
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-2">续费金额（元）</label>
+                <input
+                  type="number"
+                  value={renewForm.paidAmount}
+                  onChange={(e) => {
+                    setRenewForm(prev => ({ ...prev, paidAmount: e.target.value }));
+                    if (renewErrors.paidAmount) {
+                      setRenewErrors(prev => ({ ...prev, paidAmount: '' }));
+                    }
+                  }}
+                  placeholder="请输入缴费金额"
+                  className={`w-full px-4 py-2.5 border rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent ${
+                    renewErrors.paidAmount ? 'border-red-400 focus:ring-red-500' : 'border-slate-200'
+                  }`}
+                />
+                {renewErrors.paidAmount && (
+                  <p className="mt-1 text-sm text-red-600">{renewErrors.paidAmount}</p>
+                )}
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-2">
+                  有效期延长（天）<span className="text-slate-400"> 可选，默认180天</span>
+                </label>
+                <input
+                  type="number"
+                  value={renewForm.extendDays}
+                  onChange={(e) => {
+                    setRenewForm(prev => ({ ...prev, extendDays: e.target.value }));
+                    if (renewErrors.extendDays) {
+                      setRenewErrors(prev => ({ ...prev, extendDays: '' }));
+                    }
+                  }}
+                  placeholder="180"
+                  className={`w-full px-4 py-2.5 border rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent ${
+                    renewErrors.extendDays ? 'border-red-400 focus:ring-red-500' : 'border-slate-200'
+                  }`}
+                />
+                {renewErrors.extendDays && (
+                  <p className="mt-1 text-sm text-red-600">{renewErrors.extendDays}</p>
+                )}
+              </div>
+              <div className="flex gap-3 pt-4">
+                <button
+                  onClick={() => { setShowRenewModal(false); setRenewTargetCourse(null); }}
+                  className="flex-1 px-4 py-2.5 border border-slate-200 rounded-xl hover:bg-slate-50 transition-colors"
+                >
+                  取消
+                </button>
+                <button
+                  onClick={handleRenew}
+                  disabled={submitting}
+                  className="flex-1 px-4 py-2.5 bg-blue-600 text-white rounded-xl hover:bg-blue-700 transition-colors disabled:opacity-50"
+                >
+                  {submitting ? '处理中...' : '确认续费'}
                 </button>
               </div>
             </div>

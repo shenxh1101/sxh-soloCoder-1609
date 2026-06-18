@@ -102,6 +102,95 @@ export class ReportService {
 
     return csv;
   }
+
+  getHourWarnings(): {
+    expiringSoon: any[];
+    lowHours: any[];
+    longAbsent: any[];
+  } {
+    const expiringSoon = this.db.prepare(`
+      SELECT
+        s.id as studentId,
+        s.name as studentName,
+        s.parent_phone as parentPhone,
+        s.age,
+        s.class_id as classId,
+        cl.name as className,
+        e.id as enrollmentId,
+        e.course_id as courseId,
+        c.name as courseName,
+        e.remaining_hours as remainingHours,
+        e.expire_date as expireDate,
+        CAST(julianday(e.expire_date) - julianday(date('now')) AS INTEGER) as daysLeft,
+        e.is_frozen as isFrozen
+      FROM enrollments e
+      JOIN students s ON e.student_id = s.id
+      LEFT JOIN courses c ON e.course_id = c.id
+      LEFT JOIN classes cl ON s.class_id = cl.id
+      WHERE e.is_frozen = 0
+        AND e.remaining_hours > 0
+        AND date(e.expire_date) >= date('now')
+        AND CAST(julianday(e.expire_date) - julianday(date('now')) AS INTEGER) <= 30
+      ORDER BY daysLeft ASC
+    `).all() as any[];
+
+    const lowHours = this.db.prepare(`
+      SELECT
+        s.id as studentId,
+        s.name as studentName,
+        s.parent_phone as parentPhone,
+        s.age,
+        s.class_id as classId,
+        cl.name as className,
+        e.id as enrollmentId,
+        e.course_id as courseId,
+        c.name as courseName,
+        e.remaining_hours as remainingHours,
+        e.expire_date as expireDate,
+        CAST(julianday(e.expire_date) - julianday(date('now')) AS INTEGER) as daysLeft,
+        e.is_frozen as isFrozen
+      FROM enrollments e
+      JOIN students s ON e.student_id = s.id
+      LEFT JOIN courses c ON e.course_id = c.id
+      LEFT JOIN classes cl ON s.class_id = cl.id
+      WHERE e.is_frozen = 0
+        AND e.remaining_hours <= 3
+      ORDER BY e.remaining_hours ASC, s.name ASC
+    `).all() as any[];
+
+    const longAbsent = this.db.prepare(`
+      SELECT
+        s.id as studentId,
+        s.name as studentName,
+        s.parent_phone as parentPhone,
+        s.age,
+        s.class_id as classId,
+        cl.name as className,
+        e.id as enrollmentId,
+        e.course_id as courseId,
+        c.name as courseName,
+        e.remaining_hours as remainingHours,
+        last_att.lastAttendanceDate,
+        CAST(julianday(date('now')) - julianday(COALESCE(last_att.lastAttendanceDate, s.created_at)) AS INTEGER) as daysSince,
+        e.is_frozen as isFrozen
+      FROM enrollments e
+      JOIN students s ON e.student_id = s.id
+      LEFT JOIN courses c ON e.course_id = c.id
+      LEFT JOIN classes cl ON s.class_id = cl.id
+      LEFT JOIN (
+        SELECT student_id, MAX(attendance_date) as lastAttendanceDate
+        FROM attendance_records
+        WHERE status = 'present'
+        GROUP BY student_id
+      ) last_att ON s.id = last_att.student_id
+      WHERE e.is_frozen = 0
+        AND CAST(julianday(date('now')) - julianday(COALESCE(last_att.lastAttendanceDate, s.created_at)) AS INTEGER) >= 30
+        AND e.remaining_hours > 0
+      ORDER BY daysSince DESC
+    `).all() as any[];
+
+    return { expiringSoon, lowHours, longAbsent };
+  }
 }
 
 export default new ReportService();

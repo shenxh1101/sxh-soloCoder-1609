@@ -1,16 +1,20 @@
-import hourlyLogRepository from '../repositories/HourlyLogRepository';
+import hourlyLogRepository, { HourlyLogFilters } from '../repositories/HourlyLogRepository';
 
 export class HourlyLogService {
   getLogsByStudentId(studentId: number) {
-    return hourlyLogRepository.findByStudentId(studentId);
+    return hourlyLogRepository.findWithFilters({ studentId });
   }
 
-  getLogsByParentPhone(parentPhone: string) {
-    return hourlyLogRepository.findByParentPhone(parentPhone);
+  getLogsByParentPhone(parentPhone: string, filters?: Omit<HourlyLogFilters, 'parentPhone'>) {
+    return hourlyLogRepository.findWithFilters({ ...filters, parentPhone });
   }
 
-  getAllLogs() {
-    return hourlyLogRepository.findAll();
+  getAllLogs(filters?: HourlyLogFilters) {
+    return hourlyLogRepository.findWithFilters(filters || {});
+  }
+
+  exportAllLogs(filters?: HourlyLogFilters): string {
+    return hourlyLogRepository.exportWithFilters(filters || {});
   }
 }
 
